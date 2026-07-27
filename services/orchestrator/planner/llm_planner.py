@@ -1,0 +1,197 @@
+import re
+import time
+from typing import Callable
+
+import structlog
+
+from shared.llm.base import IntentClassification, LLMProvider
+
+from orchestrator.graph.state import PlanStep, AgentState
+from orchestrator.planner.base import BasePlanner
+from orchestrator.planner.mock_planner import (
+    _extract_expression,
+    _clean_query,
+    _extract_location,
+    _extract_subject,
+    _extract_meeting_params,
+)
+
+logger = structlog.get_logger(__name__)
+
+INTENT_TOOL_MAP: dict[str, list[str]] = {
+    "sales": ["search_pricing", "search_documents"],
+    "support": ["lookup_order", "search_documents"],
+    "booking": ["calendar", "schedule_demo"],
+    "general": ["search_documents"],
+    "math": ["calculator"],
+    "complaint": ["transfer_to_human"],
+    "escalate": ["transfer_to_human"],
+}
+
+PARAM_EXTRACTORS: dict[str, Callable[[str], dict]] = {
+    "calculator": lambda text: {"expression": _extract_expression(text)},
+    "search_documents": lambda text: {"query": _clean_query(text), "top_k": 5},
+    "search_pricing": lambda text: {"query": _clean_query(text), "top_k": 5},
+    "lookup_order": lambda text: {"order_id": _extract_order_id(text)},
+    "calendar": lambda text: {"query": text.strip()},
+    "schedule_demo": lambda text: _extract_meeting_params(text),
+    "schedule_meeting": lambda text: _extract_meeting_params(text),
+    "get_weather": lambda text: {"location": _extract_location(text)},
+    "send_email": lambda text: {
+        "to": "user@example.com",
+        "subject": _extract_subject(text),
+        "body": text.strip(),
+    },
+    "transfer_to_human": lambda text: {"reason": text.strip()},
+}
+
+_ORDER_ID_PATTERN = re.compile(r"\b(ORD|ord)[-\s]?(\d{3,6})\b")
+
+
+def _extract_order_id(text: str) -> str:
+    match = _ORDER_ID_PATTERN.search(text)
+    if match:
+        return f"ORD-{match.group(2)}"
+    return text.strip()[:30]
+
+HUMAN_ESCALATION_RESPONSE = (
+    "I understand your concern and want to make sure it gets the right attention. "
+    "I'm escalating this to a human agent who will be able to help you better. "
+    "They will review your conversation history and respond shortly."
+)
+
+_ESCALATION_PATTERN = re.compile(
+    r"\b("
+    r"talk\s+to\s+(a\s+|an\s+|the\s+)?(human|real\s+person|agent|someone|representative|support\s+team)"
+    r"|(let\s+me\s+speak|connect\s+me|transfer\s+me|put\s+me\s+through)\s+to\s+(a\s+|an\s+|the\s+)?(human|agent|person|representative|support\s+team)"
+    r"|(i\s+(want|need)\s+to\s+talk\s+to\s+(a\s+|an\s+|the\s+)?(human|real\s+person|agent))"
+    r"|((get|connect)\s+me\s+(a\s+|an\s+)?(human|agent))"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_MATH_PATTERN = re.compile(
+    r"^\s*(what\s+is|calculate|compute|solve|eval(?:uate)?)\s+"
+    r".*[\d]+[\s\d\+\-\*\/\(\)\.\^x×÷]+[?]?\s*$",
+    re.IGNORECASE,
+)
+
+_GREETING_SET = frozenset({
+    "hello", "hi", "hey", "yo", "howdy", "sup", "greetings",
+    "hello there", "hey there", "hi there",
+    "good morning", "good afternoon", "good evening",
+    "what's up", "whats up",
+})
+
+
+def _pre_classify(text: str) -> IntentClassification | None:
+    lower = text.lower().strip()
+
+    if _ESCALATION_PATTERN.search(lower):
+        return IntentClassification(
+            intent="escalate",
+            confidence=1.0,
+            requires_human=True,
+            reason="regex pre-filter: explicit human escalation request",
+        )
+
+    if _MATH_PATTERN.search(lower):
+        return IntentClassification(
+            intent="general",
+            confidence=0.95,
+            suggested_tools=["calculator"],
+            reason="regex pre-filter: math expression detected",
+        )
+
+    clean = lower.strip(".,!?;:")
+    if clean in _GREETING_SET:
+        return IntentClassification(
+            intent="general",
+            confidence=0.95,
+            reason="regex pre-filter: simple greeting",
+        )
+
+    return None
+
+
+class LLMPlanner(BasePlanner):
+    def __init__(
+        self,
+        llm_provider: LLMProvider,
+        fallback_intent: str = "general",
+    ) -> None:
+        self._llm = llm_provider
+        self._fallback_intent = fallback_intent
+
+    async def create_plan(self, state: AgentState) -> list[PlanStep]:
+        user_input = state["user_input"]
+        start = time.perf_counter()
+
+        intent = await self._classify(user_input)
+        duration_ms = (time.perf_counter() - start) * 1000
+
+        logger.info(
+            "intent_classified",
+            intent=intent.intent,
+            confidence=intent.confidence,
+            requires_human=intent.requires_human,
+            entities_count=len(intent.entities),
+            suggested_tools=intent.suggested_tools,
+            duration_ms=round(duration_ms, 2),
+        )
+
+        if intent.intent in ("complaint", "escalate"):
+            state["final_response"] = HUMAN_ESCALATION_RESPONSE
+            logger.info(
+                "plan_escalation_short_circuit",
+                intent=intent.intent,
+            )
+            return []
+
+        tool_names = self._resolve_tools(intent)
+        logger.info(
+            "tools_resolved",
+            intent=intent.intent,
+            llm_suggested=intent.suggested_tools,
+            final_tools=tool_names,
+        )
+
+        steps: list[PlanStep] = []
+        for tool_name in tool_names:
+            extractor = PARAM_EXTRACTORS.get(tool_name, lambda t: {"input": t})
+            steps.append(PlanStep(
+                tool_name=tool_name,
+                parameters=extractor(user_input),
+                reason=f"LLM classified intent as '{intent.intent}' (confidence: {intent.confidence:.2f})",
+            ))
+
+        return steps
+
+    def _resolve_tools(self, intent: IntentClassification) -> list[str]:
+        if intent.suggested_tools:
+            valid = [t for t in intent.suggested_tools if t in PARAM_EXTRACTORS]
+            if valid:
+                return valid
+
+        return INTENT_TOOL_MAP.get(intent.intent, ["search_documents"])
+
+    async def _classify(self, user_input: str) -> IntentClassification:
+        pre = _pre_classify(user_input)
+        if pre is not None:
+            logger.info(
+                "pre_classify_hit",
+                intent=pre.intent,
+                confidence=pre.confidence,
+                reason=pre.reason,
+            )
+            return pre
+
+        try:
+            return await self._llm.classify_intent(user_input)
+        except Exception as exc:
+            logger.error("intent_classification_error", error=str(exc))
+            return IntentClassification(
+                intent=self._fallback_intent,
+                confidence=0.0,
+                reason=f"Classification error, falling back to '{self._fallback_intent}': {str(exc)}",
+            )

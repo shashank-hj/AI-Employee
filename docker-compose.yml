@@ -1,0 +1,213 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-employee-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_employee
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ai-employee-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-employee-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai-employee-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  gateway:
+    build:
+      context: services/gateway
+      dockerfile: Dockerfile
+    container_name: ai-employee-gateway
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-employee-net
+    profiles:
+      - gateway
+      - all
+
+  orchestrator:
+    build:
+      context: services/orchestrator
+      dockerfile: Dockerfile
+    container_name: ai-employee-orchestrator
+    ports:
+      - "${ORCHESTRATOR_PORT:-8001}:8001"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - RAG_URL=http://rag:8004
+      - RAG_HEALTH_PATH=/health
+      - SARVAM_API_KEY=${SARVAM_API_KEY:-}
+      - SARVAM_BASE_URL=${SARVAM_BASE_URL:-https://api.sarvam.ai}
+      - SARVAM_MODEL=${SARVAM_MODEL:-sarvam-105b}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-employee-net
+    profiles:
+      - orchestrator
+      - all
+
+  tool-registry:
+    build:
+      context: services/tool-registry
+      dockerfile: Dockerfile
+    container_name: ai-employee-tool-registry
+    ports:
+      - "${TOOL_REGISTRY_PORT:-8002}:8002"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-employee-net
+    profiles:
+      - tool-registry
+      - all
+
+  memory:
+    build:
+      context: services/memory
+      dockerfile: Dockerfile
+    container_name: ai-employee-memory
+    ports:
+      - "${MEMORY_PORT:-8003}:8003"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-employee-net
+    profiles:
+      - memory
+      - all
+
+  rag:
+    build:
+      context: services/rag
+      dockerfile: Dockerfile
+    container_name: ai-employee-rag
+    ports:
+      - "${RAG_PORT:-8004}:8004"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-employee-net
+    profiles:
+      - rag
+      - all
+
+  workflow:
+    build:
+      context: services/workflow
+      dockerfile: Dockerfile
+    container_name: ai-employee-workflow
+    ports:
+      - "${WORKFLOW_PORT:-8005}:8005"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-employee-net
+    profiles:
+      - workflow
+      - all
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: ai-employee-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./infra/docker/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - ai-employee-net
+    profiles:
+      - all
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  ai-employee-net:
+    driver: bridge

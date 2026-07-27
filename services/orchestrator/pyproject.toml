@@ -1,0 +1,35 @@
+[project]
+name = "ai-employee-orchestrator"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]",
+    "uvicorn[standard]",
+    "httpx",
+    "structlog",
+    "pydantic-settings",
+    "ai-employee-shared-auth",
+    "ai-employee-shared-events",
+    "ai-employee-shared-models",
+    "ai-employee-shared-llm",
+    "ai-employee-shared-utils",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-exporter-otlp",
+    "redis",
+    "langgraph>=0.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["orchestrator"]
+package-dir = {"orchestrator" = "."}

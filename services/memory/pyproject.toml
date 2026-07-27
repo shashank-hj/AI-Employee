@@ -1,0 +1,36 @@
+[project]
+name = "ai-employee-memory"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]",
+    "uvicorn[standard]",
+    "httpx",
+    "structlog",
+    "pydantic-settings",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "ai-employee-shared-auth",
+    "ai-employee-shared-events",
+    "ai-employee-shared-models",
+    "ai-employee-shared-utils",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-exporter-otlp",
+    "redis",
+    "pgvector",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["memory"]
+package-dir = {"memory" = "."}
