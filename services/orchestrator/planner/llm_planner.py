@@ -76,6 +76,35 @@ _MATH_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_SUPPORT_PATTERN = re.compile(
+    r"\b(ord(er)?[-\s]?\d+|track(ing)?(\s+(id|number))?|"
+    r"delivery|ship(ping|ment)|return(s)?|refund|"
+    r"(where|when)\s+(is|will)\s+my\s+(order|package|delivery|shipment)|"
+    r"not\s+arrived|hasn'?t\s+arrived|still\s+waiting)\b",
+    re.IGNORECASE,
+)
+
+_SALES_PATTERN = re.compile(
+    r"\b(pric(e|ing)(\s+(plan|tier))?|purchas(e|ing)|buy(ing)?\s*$|"
+    r"subscription|enterprise\s+(plan|pricing|tier)|cost(\s+of|s)?|"
+    r"how\s+much|quote|trial|upgrade|downgrade|"
+    r"free\s+(plan|tier)|pro\s+(plan|tier))\b",
+    re.IGNORECASE,
+)
+
+_BOOKING_PATTERN = re.compile(
+    r"\b(demo|appointment|reserv(ation|e)|book(ing)?|"
+    r"schedule?\s+(a\s+|the\s+)?(demo|appointment|meeting|call|session|time)|"
+    r"calendar|availability|set\s+up\s+(a\s+|the\s+)?(demo|meeting|call)|"
+    r"(next|this)\s+(monday|tuesday|wednesday|thursday|friday|week)\b)",
+    re.IGNORECASE,
+)
+
+_WEATHER_PATTERN = re.compile(
+    r"\b(weather|temperature|forecast|rain(ing)?|sunny|snow(ing)?|climate|humidity)\b",
+    re.IGNORECASE,
+)
+
 _GREETING_SET = frozenset({
     "hello", "hi", "hey", "yo", "howdy", "sup", "greetings",
     "hello there", "hey there", "hi there",
@@ -92,7 +121,7 @@ def _pre_classify(text: str) -> IntentClassification | None:
             intent="escalate",
             confidence=1.0,
             requires_human=True,
-            reason="regex pre-filter: explicit human escalation request",
+            reason="regex: human escalation request",
         )
 
     if _MATH_PATTERN.search(lower):
@@ -100,7 +129,39 @@ def _pre_classify(text: str) -> IntentClassification | None:
             intent="general",
             confidence=0.95,
             suggested_tools=["calculator"],
-            reason="regex pre-filter: math expression detected",
+            reason="regex: math expression",
+        )
+
+    if _WEATHER_PATTERN.search(lower):
+        return IntentClassification(
+            intent="general",
+            confidence=0.92,
+            suggested_tools=["get_weather"],
+            reason="regex: weather query",
+        )
+
+    if _SUPPORT_PATTERN.search(lower):
+        return IntentClassification(
+            intent="support",
+            confidence=0.90,
+            suggested_tools=["lookup_order", "search_documents"],
+            reason="regex: support/order query",
+        )
+
+    if _SALES_PATTERN.search(lower):
+        return IntentClassification(
+            intent="sales",
+            confidence=0.90,
+            suggested_tools=["search_pricing", "search_documents"],
+            reason="regex: sales/pricing query",
+        )
+
+    if _BOOKING_PATTERN.search(lower):
+        return IntentClassification(
+            intent="booking",
+            confidence=0.90,
+            suggested_tools=["calendar", "schedule_demo"],
+            reason="regex: booking/scheduling query",
         )
 
     clean = lower.strip(".,!?;:")
@@ -108,7 +169,7 @@ def _pre_classify(text: str) -> IntentClassification | None:
         return IntentClassification(
             intent="general",
             confidence=0.95,
-            reason="regex pre-filter: simple greeting",
+            reason="regex: simple greeting",
         )
 
     return None

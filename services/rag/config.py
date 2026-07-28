@@ -11,12 +11,17 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     SECRET_KEY: str = "changeme"
     VECTOR_DB_URL: str = "redis://localhost:6379/1"
-    EMBEDDING_DIMENSION: int = 1536
+    EMBEDDING_DIMENSION: int = 768
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
     OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://otel-collector:4317"
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "rag"
+
+    EMBEDDING_PROVIDER: str = "mock"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
+    EMBEDDING_TIMEOUT: float = 30.0
 
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 

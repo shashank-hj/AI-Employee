@@ -7,19 +7,22 @@ from orchestrator.container import (
     get_agent_service,
     get_planner,
     get_tool_registry,
-    _build_llm_provider,
+    _build_classify_llm,
+    _build_generate_llm,
     _build_rag_client,
 )
 
 
 @pytest.fixture(scope="function", autouse=True)
 def _force_mock_mode(monkeypatch):
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "")
     monkeypatch.setattr(settings, "SARVAM_API_KEY", "")
     get_settings.cache_clear()
     get_agent_service.cache_clear()
     get_planner.cache_clear()
     get_tool_registry.cache_clear()
-    _build_llm_provider.cache_clear()
+    _build_classify_llm.cache_clear()
+    _build_generate_llm.cache_clear()
     _build_rag_client.cache_clear()
 
 

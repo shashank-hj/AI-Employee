@@ -184,6 +184,36 @@ RESPONSE_SYSTEM_PROMPT = (
     "6. If the user's request requires a human, confirm the escalation has been initiated."
 )
 
+PERSONA_PROMPTS: dict[str, str] = {
+    "sales": (
+        "You are a Sales AI Employee. You help prospects and customers with product information, pricing, "
+        "and purchase decisions. Be enthusiastic, knowledgeable, and solution-oriented. "
+        "When presenting pricing, highlight the value proposition of each tier. "
+        "Offer to schedule a demo if appropriate. End with a helpful next step."
+    ),
+    "support": (
+        "You are a Support AI Employee. You help customers with order tracking, returns, troubleshooting, "
+        "and account issues. Be empathetic, patient, and thorough. If you cannot resolve the issue, "
+        "offer to escalate to a human agent. Always confirm that the customer's concern is addressed."
+    ),
+    "booking": (
+        "You are a Booking AI Employee. You help users schedule demos, appointments, and meetings. "
+        "Be efficient and precise with dates, times, and availability. Confirm all booking details "
+        "before finalizing. Offer alternative slots if the requested time is unavailable."
+    ),
+    "general": RESPONSE_SYSTEM_PROMPT,
+    "complaint": (
+        "You are handling a customer complaint. Be deeply empathetic, acknowledge their frustration, "
+        "and confirm that their concern has been escalated to a human agent who will address it personally. "
+        "Do not make promises about refunds or compensation — the human agent will handle that."
+    ),
+    "escalate": (
+        "The user has requested to speak with a human agent. Confirm that their request "
+        "has been received and that a human agent will review their conversation history "
+        "and respond shortly. Be courteous and reassuring."
+    ),
+}
+
 
 def create_respond_node(llm_provider: LLMProvider | None = None) -> Any:
     import structlog
@@ -221,32 +251,13 @@ def create_respond_node(llm_provider: LLMProvider | None = None) -> Any:
 
         tool_context = _build_tool_context(tool_results)
         prompt_parts = [f"User's question: {state['user_input']}"]
-
-        document_context = state.get("document_context", [])
-        if document_context:
-            doc_text = "\n".join(
-                d.get("snippet", d.get("content", ""))[:300]
-                for d in document_context[:5]
-            )
-            prompt_parts.append(f"Reference documents:\n{doc_text}")
-
-        memory_context = state.get("memory_context", [])
-        if memory_context:
-            mem_text = "\n".join(
-                f"{m.get('role', 'unknown')}: {m.get('content', '')[:200]}"
-                for m in memory_context[:5]
-            )
-            prompt_parts.append(f"Prior conversation context:\n{mem_text}")
-
         prompt_parts.append(f"Tool results:\n{tool_context}")
-        user_message = "\n\n".join(prompt_parts)
+        user_message = "\n\n".join(prompt_parts)[:3000]
 
         logger.info(
             "respond_assembling_context",
             request_id=state.get("request_id"),
             tool_count=len(tool_results),
-            doc_count=len(document_context),
-            memory_count=len(memory_context),
             prompt_length=len(user_message),
         )
 
@@ -258,7 +269,7 @@ def create_respond_node(llm_provider: LLMProvider | None = None) -> Any:
 
             try:
                 response = await llm_provider.generate(
-                    system_prompt=RESPONSE_SYSTEM_PROMPT,
+                    system_prompt=_resolve_persona(state),
                     user_message=user_message,
                 )
                 logger.info(
@@ -354,3 +365,20 @@ def _build_natural_summary(tool_results: list[dict[str, Any]]) -> str:
             parts.append(f"Email sent to {data.get('to', 'recipient')}")
 
     return "\n".join(parts) if parts else "I received your request but found no results to share."
+
+
+def _resolve_persona(state: AgentState) -> str:
+    plan = state.get("plan", [])
+    if not plan:
+        if state.get("final_response"):
+            return PERSONA_PROMPTS.get("escalate", RESPONSE_SYSTEM_PROMPT)
+        return RESPONSE_SYSTEM_PROMPT
+
+    tool_names = [s["tool_name"] for s in plan]
+    if "search_pricing" in tool_names:
+        return PERSONA_PROMPTS["sales"]
+    if "lookup_order" in tool_names:
+        return PERSONA_PROMPTS["support"]
+    if "calendar" in tool_names or "schedule_demo" in tool_names:
+        return PERSONA_PROMPTS["booking"]
+    return PERSONA_PROMPTS.get("general", RESPONSE_SYSTEM_PROMPT)

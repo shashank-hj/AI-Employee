@@ -19,17 +19,21 @@ class Settings(BaseSettings):
     SERVICE_NAME: str = "orchestrator"
     APP_VERSION: str = "0.1.0"
 
+    LLM_PROVIDER: str = ""
     SARVAM_API_KEY: str = ""
     SARVAM_BASE_URL: str = "https://api.sarvam.ai"
     SARVAM_MODEL: str = "sarvam-105b"
     SARVAM_TIMEOUT: float = 30.0
     SARVAM_MAX_RETRIES: int = 3
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "qwen3:8b"
+    OLLAMA_TIMEOUT: float = 120.0
     LLM_FALLBACK_INTENT: str = "general"
     LLM_TEMPERATURE: float = 0.1
-    LLM_MAX_TOKENS: int = 1024
+    LLM_MAX_TOKENS: int = 2048
     LLM_CLASSIFY_MAX_TOKENS: int = 512
 
-    RAG_QUERY_PATH: str = "/api/v1/documents/query"
+    RAG_QUERY_PATH: str = "/api/query"
     RAG_HEALTH_PATH: str = "/health"
     RAG_TIMEOUT: float = 5.0
 

@@ -16,23 +16,28 @@ class VectorStore:
         await self._session.flush()
         return chunks
 
+    @staticmethod
+    def _format_vector(embedding: list[float]) -> str:
+        return "[" + ",".join(str(v) for v in embedding) + "]"
+
     async def search(
         self,
         embedding: list[float],
         top_k: int = 5,
         min_score: float = 0.0,
     ) -> list[tuple[DocumentChunkModel, str, str, float]]:
-        params: dict = {"embedding": embedding, "top_k": top_k}
+        vec_str = self._format_vector(embedding)
+        params: dict = {"embedding": vec_str, "top_k": top_k}
         query = sa_text("""
             SELECT
                 dc.id, dc.document_id, dc.chunk_index, dc.content, dc.metadata,
                 dc.created_at, dc.updated_at,
                 d.title AS document_title,
-                1 - (dc.embedding <=> :embedding) AS score
+                1 - (dc.embedding <=> CAST(:embedding AS vector)) AS score
             FROM document_chunks dc
             JOIN documents d ON d.id = dc.document_id
             WHERE dc.embedding IS NOT NULL
-            ORDER BY dc.embedding <=> :embedding
+            ORDER BY dc.embedding <=> CAST(:embedding AS vector)
             LIMIT :top_k
         """)
 

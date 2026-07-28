@@ -5,14 +5,13 @@ from shared.llm.openai_compatible_provider import (
     DEFAULT_MAX_TOKENS,
 )
 
-DEFAULT_BASE_URL = "https://api.sarvam.ai"
-DEFAULT_MODEL = "sarvam-105b"
+DEFAULT_BASE_URL = "http://localhost:11434"
+DEFAULT_MODEL = "qwen3:8b"
 
 
-class SarvamProvider(OpenAICompatibleProvider):
+class OllamaProvider(OpenAICompatibleProvider):
     def __init__(
         self,
-        api_key: str,
         base_url: str = DEFAULT_BASE_URL,
         model: str = DEFAULT_MODEL,
         timeout: float = DEFAULT_TIMEOUT,
@@ -22,9 +21,8 @@ class SarvamProvider(OpenAICompatibleProvider):
         super().__init__(
             base_url=base_url,
             model=model,
-            api_key=api_key,
+            api_key="",  # Ollama runs locally — no auth required
             timeout=timeout,
             temperature=temperature,
             max_tokens=max_tokens,
-            extra_headers={"api-subscription-key": api_key},
         )

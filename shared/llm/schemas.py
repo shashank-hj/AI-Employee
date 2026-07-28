@@ -36,35 +36,44 @@ class IntentClassificationResult(BaseModel):
     )
 
 
-class SarvamChatMessage(BaseModel):
+class ChatMessage(BaseModel):
     role: str
     content: str
 
 
-class SarvamChatRequest(BaseModel):
+class ChatRequest(BaseModel):
     model: str
-    messages: list[SarvamChatMessage]
+    messages: list[ChatMessage]
     temperature: float = 0.1
     max_tokens: int = 1024
     response_format: dict[str, Any] | None = None
 
 
-class SarvamChatChoice(BaseModel):
+class ChatChoice(BaseModel):
     index: int
-    message: SarvamChatMessage
+    message: ChatMessage
     finish_reason: str | None = None
 
 
-class SarvamUsage(BaseModel):
+class ChatUsage(BaseModel):
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
 
 
-class SarvamChatResponse(BaseModel):
+class ChatResponse(BaseModel):
     id: str
     object: str
     created: int
     model: str
-    choices: list[SarvamChatChoice]
-    usage: SarvamUsage | None = None
+    choices: list[ChatChoice]
+    usage: ChatUsage | None = None
+
+
+
+# Backward compatibility aliases
+SarvamChatMessage = ChatMessage
+SarvamChatRequest = ChatRequest
+SarvamChatChoice = ChatChoice
+SarvamChatUsage = ChatUsage
+SarvamChatResponse = ChatResponse

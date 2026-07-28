@@ -54,12 +54,27 @@ receive → build_context → plan → after_plan_route
 
 - **Python 3.12** with **FastAPI** and **Uvicorn**
 - **LangGraph** for stateful agent orchestration
-- **Sarvam AI** (`sarvam-105b`) for intent classification and response generation
+- **Multi-LLM support**: Ollama (local), Sarvam AI (cloud), extensible for OpenAI
 - **PostgreSQL 16** via **SQLAlchemy** (async) and **asyncpg**
 - **Redis 7** for caching and pub/sub
 - **Alembic** for database migrations
 - **OpenTelemetry** for observability
 - **Structlog** for structured logging
+
+### LLM Provider Architecture
+
+```
+                    LLMProvider (abstract)
+                         │
+          ┌──────────────┼──────────────┐
+          │              │              │
+   OllamaProvider  SarvamProvider  (OpenAI future)
+
+    Local llama     Cloud API       Drop-in via
+    qwen3:8b       sarvam-105b     same interface
+```
+
+Switch providers by changing one env var — no code changes needed.
 
 ## Quick Start
 
@@ -67,6 +82,22 @@ receive → build_context → plan → after_plan_route
 
 - Python 3.12+
 - PostgreSQL 16 (for database-backed services)
+- **Ollama** (recommended for local development) or a Sarvam AI API key
+
+### 0. Install Ollama (recommended)
+
+```bash
+# Install Ollama
+# Windows: https://ollama.com/download/windows
+# macOS:   brew install ollama
+# Linux:   curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull the recommended model
+ollama pull qwen3:8b
+
+# Verify it works
+ollama run qwen3:8b "Hello, how are you?"
+```
 
 ### 1. Clone and install
 
@@ -81,22 +112,36 @@ cp .env.example .env
 uv sync
 ```
 
-### 2. Run the orchestrator
+### 2. Configure your LLM provider
 
-**Mock mode** (no API key required — uses regex-based intent matching):
+Edit `.env` and choose your provider:
 
-```powershell
-$env:SARVAM_API_KEY = ""
+```bash
+# For Ollama (local, free, no API key):
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=qwen3:8b
+
+# For Sarvam AI (cloud, requires API key):
+LLM_PROVIDER=sarvam
+SARVAM_API_KEY=sk_your_key_here
+
+# For mock mode (offline, regex-based):
+LLM_PROVIDER=
+```
+
+### 3. Run the orchestrator
+
+```bash
 uvicorn orchestrator.main:app --port 8001
 ```
 
-**LLM mode** (with Sarvam AI API key):
+Expected startup log:
+```
+{"event": "startup_configuration", "llm_provider": "OllamaProvider", "llm_model": "qwen3:8b", ...}
+{"event": "llm_healthy", "model": "qwen3:8b"}
+```
 
-```powershell
-# Edit .env and set your key:
-# SARVAM_API_KEY=sk_your_key_here
-
-uvicorn orchestrator.main:app --port 8001
+### 4. Interactive CLI
 ```
 
 You should see:
@@ -180,17 +225,20 @@ All configuration lives in `services/orchestrator/config.py` and `.env`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SARVAM_API_KEY` | `""` | Empty = MockPlanner fallback |
-| `SARVAM_MODEL` | `sarvam-105b` | LLM model for classification + generation |
-| `SARVAM_BASE_URL` | `https://api.sarvam.ai` | Sarvam AI API endpoint |
-| `SARVAM_TIMEOUT` | `30.0` | LLM request timeout (seconds) |
-| `RAG_URL` | `http://localhost:8004` | RAG service URL (Docker: `http://rag:8004`) |
+| `LLM_PROVIDER` | `""` | `"ollama"`, `"sarvam"`, or `""` (mock) |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
+| `OLLAMA_MODEL` | `qwen3:8b` | Ollama model name |
+| `OLLAMA_TIMEOUT` | `60.0` | Ollama request timeout (seconds) |
+| `SARVAM_API_KEY` | `""` | Sarvam AI API key |
+| `SARVAM_MODEL` | `sarvam-105b` | Sarvam model name |
+| `SARVAM_BASE_URL` | `https://api.sarvam.ai` | Sarvam API endpoint |
+| `SARVAM_TIMEOUT` | `30.0` | Sarvam request timeout (seconds) |
+| `RAG_URL` | `http://localhost:8004` | RAG service URL |
 | `RAG_TIMEOUT` | `5.0` | RAG request timeout (seconds) |
 | `LLM_TEMPERATURE` | `0.1` | LLM sampling temperature |
 | `LLM_MAX_TOKENS` | `1024` | Max tokens for response generation |
 | `LLM_CLASSIFY_MAX_TOKENS` | `512` | Max tokens for intent classification |
 | `LLM_FALLBACK_INTENT` | `general` | Default intent on classification failure |
-| `LOG_LEVEL` | `INFO` | Logging level |
 
 ## API Endpoints
 

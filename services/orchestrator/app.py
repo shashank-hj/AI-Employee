@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from orchestrator.config import settings
-from orchestrator.container import _build_rag_client, _build_llm_provider
-from orchestrator.routers import health, agent
+from orchestrator.container import _build_rag_client, _build_generate_llm
+from orchestrator.routers import health, agent, human_tasks
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
 
@@ -39,14 +40,17 @@ async def lifespan(app: FastAPI):
 
 
 def _log_startup_config() -> None:
+    provider_name = settings.LLM_PROVIDER or ("SarvamProvider" if settings.SARVAM_API_KEY else "MockPlanner")
+    model = settings.SARVAM_MODEL if settings.LLM_PROVIDER.lower() in ("sarvam", "") else settings.OLLAMA_MODEL
+
     logger.info(
         "startup_configuration",
         version=APP_VERSION,
         environment=settings.ENVIRONMENT,
         service_name=settings.SERVICE_NAME,
         rag_url=settings.RAG_URL,
-        llm_provider="SarvamProvider" if settings.SARVAM_API_KEY else "MockPlanner",
-        llm_model=settings.SARVAM_MODEL,
+        llm_provider=provider_name,
+        llm_model=model,
         log_level=settings.LOG_LEVEL,
         rag_timeout=settings.RAG_TIMEOUT,
     )
@@ -66,16 +70,18 @@ async def _check_rag(rag_client) -> None:
 
 async def _check_llm(llm_provider) -> None:
     if llm_provider is None:
-        logger.warning("llm_disabled", message="No SARVAM_API_KEY configured; using MockPlanner")
+        logger.warning("llm_disabled", message="No LLM provider configured; using MockPlanner")
         return
     healthy = await llm_provider.health_check()
+    model = settings.SARVAM_MODEL if settings.LLM_PROVIDER.lower() in ("sarvam", "") else settings.OLLAMA_MODEL
     if healthy:
-        logger.info("llm_healthy", model=settings.SARVAM_MODEL)
+        logger.info("llm_healthy", model=model, provider=type(llm_provider).__name__)
     else:
         logger.warning(
             "llm_unhealthy",
-            model=settings.SARVAM_MODEL,
-            message="Sarvam API unreachable; intent classification will fall back to 'general'",
+            model=model,
+            provider=type(llm_provider).__name__,
+            message="LLM API unreachable; intent classification will fall back to 'general'",
         )
 
 
@@ -110,9 +116,17 @@ def create_app() -> FastAPI:
         )
 
     app.state.rag_client = _build_rag_client()
-    app.state.llm_provider = _build_llm_provider()
+    app.state.llm_provider = _build_generate_llm()
 
     app.include_router(health.router, tags=["Health"])
     app.include_router(agent.router, tags=["Agent"])
+    app.include_router(human_tasks.router, tags=["Human Tasks"])
+
+    @app.get("/dashboard", response_class=HTMLResponse)
+    async def dashboard():
+        import os
+        static_dir = os.path.join(os.path.dirname(__file__), "static")
+        with open(os.path.join(static_dir, "dashboard.html"), "r", encoding="utf-8") as f:
+            return f.read()
 
     return app

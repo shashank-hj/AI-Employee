@@ -1,8 +1,6 @@
-from abc import ABC, abstractmethod
-import math
-import random
 import re
-from typing import Optional
+
+from shared.llm.embedding_provider import BaseEmbeddingProvider, MockEmbeddingProvider
 
 
 class TextChunker:
@@ -49,35 +47,12 @@ class TextChunker:
         return combined[start:]
 
 
-class BaseEmbeddingProvider(ABC):
-    @abstractmethod
-    async def embed(self, texts: list[str]) -> list[list[float]]: ...
-
-    @property
-    @abstractmethod
-    def dimension(self) -> int: ...
-
-
-class MockEmbeddingProvider(BaseEmbeddingProvider):
-    DIMENSION = 1536
-
-    @property
-    def dimension(self) -> int:
-        return self.DIMENSION
-
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        vectors: list[list[float]] = []
-        for text in texts:
-            random.seed(hash(text) & 0xFFFFFFFF)
-            vec = [random.gauss(0, 1) for _ in range(self.DIMENSION)]
-            norm = math.sqrt(sum(x * x for x in vec))
-            vectors.append([x / norm for x in vec] if norm > 0 else [0.0] * self.DIMENSION)
-        return vectors
-
-
 class DocumentIngester:
     def __init__(self, chunker: TextChunker) -> None:
         self._chunker = chunker
 
     def ingest(self, content: str) -> list[str]:
         return self._chunker.chunk(content)
+
+
+__all__ = ["BaseEmbeddingProvider", "MockEmbeddingProvider", "TextChunker", "DocumentIngester"]

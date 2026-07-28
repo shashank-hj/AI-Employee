@@ -14,10 +14,17 @@ from rag.services.pipeline import (
     TextChunker,
 )
 from rag.services.rag_service import RAGService, Retriever, Ranker
+from shared.llm.embedding_provider import OllamaEmbeddingProvider
 
 
 @lru_cache()
 def get_embedding_provider() -> BaseEmbeddingProvider:
+    if settings.EMBEDDING_PROVIDER == "ollama":
+        return OllamaEmbeddingProvider(
+            base_url=settings.OLLAMA_BASE_URL,
+            model=settings.OLLAMA_EMBED_MODEL,
+            timeout=settings.EMBEDDING_TIMEOUT,
+        )
     return MockEmbeddingProvider()
 
 

@@ -14,5 +14,5 @@ class DocumentChunkModel(Base, TimestampMixin):
     document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(1536), nullable=True)
+    embedding = Column(Vector(768), nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)

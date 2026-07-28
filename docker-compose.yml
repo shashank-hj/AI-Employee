@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: ai-employee-postgres
     environment:
       POSTGRES_USER: postgres
@@ -74,11 +74,14 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LLM_PROVIDER=${LLM_PROVIDER:-}
       - RAG_URL=http://rag:8004
       - RAG_HEALTH_PATH=/health
       - SARVAM_API_KEY=${SARVAM_API_KEY:-}
       - SARVAM_BASE_URL=${SARVAM_BASE_URL:-https://api.sarvam.ai}
       - SARVAM_MODEL=${SARVAM_MODEL:-sarvam-105b}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
     depends_on:
       postgres:
         condition: service_healthy

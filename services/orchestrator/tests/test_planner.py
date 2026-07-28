@@ -207,7 +207,7 @@ class TestLLMPlanner:
     async def test_complaint_intent_returns_empty_plan(self):
         llm = _FakeLLMProvider(intent="complaint", confidence=0.97)
         planner = LLMPlanner(llm_provider=llm)
-        state = _make_state("I want a full refund right now!")
+        state = _make_state("I am extremely dissatisfied with the service quality and want to file a formal grievance")
         plan = await planner.create_plan(state)
         assert len(plan) == 0
         assert state.get("final_response") is not None
@@ -241,7 +241,7 @@ class TestLLMPlanner:
                 return False
 
         planner = LLMPlanner(llm_provider=_ErrorLLM(), fallback_intent="general")
-        state = _make_state("What is your refund policy?")
+        state = _make_state("Tell me about the company history")
         plan = await planner.create_plan(state)
         assert len(plan) == 1
         assert plan[0]["tool_name"] == "search_documents"
