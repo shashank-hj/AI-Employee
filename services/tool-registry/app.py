@@ -1,18 +1,30 @@
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from tool_registry.config import settings
+from tool_registry.database.session import engine
 from tool_registry.routers import health, tools
+from shared.models.base import Base
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
+
+logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    import tool_registry.models.tool  # noqa: F811 — register models on Base
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("database_initialized")
+    except Exception as e:
+        logger.warning("database_init_skipped", error=str(e))
     yield
 
 

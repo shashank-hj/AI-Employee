@@ -15,6 +15,6 @@ class LongTermMemoryModel(Base, TimestampMixin):
     content = Column(Text, nullable=False)
     memory_type = Column(String(50), nullable=False, index=True)
     importance = Column(Float, default=0.5, nullable=False)
-    embedding = Column(Vector(1536), nullable=True)
+    embedding = Column(Vector(768), nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)
     source = Column(String(255), nullable=True)

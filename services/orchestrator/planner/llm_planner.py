@@ -93,10 +93,12 @@ _SALES_PATTERN = re.compile(
 )
 
 _BOOKING_PATTERN = re.compile(
-    r"\b(demo|appointment|reserv(ation|e)|book(ing)?|"
-    r"schedule?\s+(a\s+|the\s+)?(demo|appointment|meeting|call|session|time)|"
-    r"calendar|availability|set\s+up\s+(a\s+|the\s+)?(demo|meeting|call)|"
-    r"(next|this)\s+(monday|tuesday|wednesday|thursday|friday|week)\b)",
+    r"\b(book\s+(a\s+|the\s+)?(demo|appointment|meeting|call|session)|"
+    r"schedule\s+(a\s+|the\s+)?(demo|appointment|meeting|call)|"
+    r"set\s+up\s+(a\s+|the\s+)?(demo|meeting|call)|"
+    r"reschedule|"
+    r"(next|this)\s+(monday|tuesday|wednesday|thursday|friday|week)|"
+    r"check\s+(my\s+)?availability)\b",
     re.IGNORECASE,
 )
 

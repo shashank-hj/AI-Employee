@@ -71,24 +71,29 @@ class GetWeatherTool(BaseTool):
     parameters_schema = {
         "type": "object",
         "properties": {
-            "location": {"type": "string", "description": "City name, e.g. 'San Francisco'"},
+            "location": {"type": "string", "description": "City name, e.g. 'Bengaluru'"},
             "unit": {"type": "string", "enum": ["celsius", "fahrenheit"], "default": "celsius"},
         },
         "required": ["location"],
     }
 
+    def __init__(self, weather_service=None):
+        self._weather = weather_service
+
     async def invoke(self, parameters: dict[str, Any]) -> dict[str, Any]:
         location = parameters.get("location", "Unknown")
         unit = parameters.get("unit", "celsius")
+        if self._weather:
+            result = await self._weather.get_weather(location, unit)
+            return {"success": True, "data": result}
         temp = random.randint(5, 35) if unit == "celsius" else random.randint(40, 95)
-        conditions = random.choice(["Sunny", "Partly Cloudy", "Cloudy", "Rainy", "Clear"])
         return {
             "success": True,
             "data": {
                 "location": location,
                 "temperature": temp,
                 "unit": unit,
-                "conditions": conditions,
+                "conditions": random.choice(["Sunny", "Partly Cloudy", "Cloudy", "Rainy", "Clear"]),
                 "humidity": random.randint(30, 90),
             },
         }
@@ -96,7 +101,7 @@ class GetWeatherTool(BaseTool):
 
 class SendEmailTool(BaseTool):
     name = "send_email"
-    description = "Send an email to a recipient. Returns a mock delivery confirmation."
+    description = "Send an email to a recipient. Returns delivery confirmation."
     parameters_schema = {
         "type": "object",
         "properties": {
@@ -107,9 +112,16 @@ class SendEmailTool(BaseTool):
         "required": ["to", "subject", "body"],
     }
 
+    def __init__(self, email_service=None):
+        self._email = email_service
+
     async def invoke(self, parameters: dict[str, Any]) -> dict[str, Any]:
         to = parameters.get("to", "")
         subject = parameters.get("subject", "")
+        body = parameters.get("body", "")
+        if self._email:
+            result = await self._email.send_email(to, subject, body)
+            return {"success": True, "data": result}
         return {
             "success": True,
             "data": {
@@ -136,12 +148,18 @@ class ScheduleMeetingTool(BaseTool):
         "required": ["title", "attendees", "date", "time"],
     }
 
+    def __init__(self, calendar_service=None):
+        self._calendar = calendar_service
+
     async def invoke(self, parameters: dict[str, Any]) -> dict[str, Any]:
         title = parameters.get("title", "Untitled")
         attendees = parameters.get("attendees", [])
         date = parameters.get("date", "")
         time = parameters.get("time", "")
         duration = parameters.get("duration_minutes", 30)
+        if self._calendar:
+            result = await self._calendar.schedule_meeting(title, date, time, attendees)
+            return {"success": True, "data": dict(result, duration_minutes=duration)}
         return {
             "success": True,
             "data": {
@@ -269,8 +287,18 @@ class TransferToHumanTool(BaseTool):
         "required": ["reason"],
     }
 
+    def __init__(self, escalation_service=None):
+        self._escalation = escalation_service
+
     async def invoke(self, parameters: dict[str, Any]) -> dict[str, Any]:
         reason = parameters.get("reason", "User requested human agent")
+        if self._escalation:
+            result = await self._escalation.transfer_to_human(
+                reason=reason,
+                user_input=parameters.get("user_input", reason),
+                priority=parameters.get("priority", "NORMAL"),
+            )
+            return {"success": True, "data": result}
         return {
             "success": True,
             "data": {
@@ -289,14 +317,17 @@ def register_mock_tools(
     order_service: Any = None,
     calendar_service: Any = None,
     pricing_service: Any = None,
+    email_service: Any = None,
+    escalation_service: Any = None,
+    weather_service: Any = None,
 ) -> None:
     registry.register(CalculatorTool())
     registry.register(SearchDocumentsTool(rag_client=rag_client))
-    registry.register(GetWeatherTool())
-    registry.register(SendEmailTool())
-    registry.register(ScheduleMeetingTool())
+    registry.register(GetWeatherTool(weather_service=weather_service))
+    registry.register(SendEmailTool(email_service=email_service))
+    registry.register(ScheduleMeetingTool(calendar_service=calendar_service))
     registry.register(SearchPricingTool(pricing_service=pricing_service))
     registry.register(LookupOrderTool(order_service=order_service))
     registry.register(CalendarTool(calendar_service=calendar_service))
     registry.register(ScheduleDemoTool(calendar_service=calendar_service))
-    registry.register(TransferToHumanTool())
+    registry.register(TransferToHumanTool(escalation_service=escalation_service))

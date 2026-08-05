@@ -90,9 +90,9 @@ class RAGService:
             await self._store.store_chunks(chunk_models)
             doc = await self._doc_repo.update_status(doc, DocumentStatus.READY, len(chunk_models))
             logger.info("document_ingested", doc_id=str(doc.id), chunks_count=len(chunk_models))
-        except Exception:
+        except Exception as exc:
+            logger.error("document_ingestion_failed", doc_id=str(doc.id), error=str(exc))
             await self._doc_repo.update_status(doc, DocumentStatus.FAILED, 0)
-            raise
 
         return self._doc_to_response(doc)
 

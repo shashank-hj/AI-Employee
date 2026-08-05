@@ -32,5 +32,13 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["memory"]
+packages = [
+    "memory",
+    "memory.database",
+    "memory.models",
+    "memory.repositories",
+    "memory.routers",
+    "memory.schemas",
+    "memory.services",
+]
 package-dir = {"memory" = "."}

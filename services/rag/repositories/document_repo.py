@@ -17,10 +17,10 @@ class DocumentRepository:
         return doc
 
     async def update_status(self, doc: DocumentModel, status: str, chunks_count: int = 0) -> DocumentModel:
+        await self._session.merge(doc)
         doc.status = status
         doc.chunks_count = chunks_count
         await self._session.flush()
-        await self._session.refresh(doc)
         return doc
 
     async def get_by_id(self, doc_id: str) -> Optional[DocumentModel]:

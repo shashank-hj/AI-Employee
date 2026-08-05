@@ -31,5 +31,13 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["tool_registry"]
+packages = [
+    "tool_registry",
+    "tool_registry.database",
+    "tool_registry.models",
+    "tool_registry.repositories",
+    "tool_registry.routers",
+    "tool_registry.schemas",
+    "tool_registry.services",
+]
 package-dir = {"tool_registry" = "."}

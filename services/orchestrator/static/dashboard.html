@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HITL Dashboard — AI Employee Platform</title>
+<title>AI Employee Platform — Dashboard</title>
 <style>
-:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d2991d;--muted:#8b949e}
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d2991d;--muted:#8b949e;--purple:#a371f7}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:2rem;max-width:1200px;margin:0 auto}
-h1{color:#fff;margin-bottom:1rem;font-size:1.5rem}
+h1{color:#fff;margin-bottom:0.5rem;font-size:1.5rem}
+h2{color:var(--muted);font-size:1rem;font-weight:400;margin-bottom:1.5rem}
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
 .badge{padding:4px 12px;border-radius:12px;font-size:.8rem;font-weight:600}
 .badge-pending{background:#1a2332;color:var(--accent)}
@@ -31,24 +32,146 @@ h1{color:#fff;margin-bottom:1rem;font-size:1.5rem}
 .refresh{text-align:right;margin-bottom:1rem}
 .refresh button{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:.8rem}
 .refresh button:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Voice Widget */
+.voice-card{margin-bottom:2rem}
+.voice-layout{display:flex;gap:1.5rem;align-items:flex-start}
+.voice-mic{flex-shrink:0}
+.voice-content{flex:1;min-width:0}
+.mic-btn{width:64px;height:64px;border-radius:50%;border:2px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;font-size:24px;position:relative}
+.mic-btn:hover{border-color:var(--accent);color:var(--accent)}
+.mic-btn.recording{background:var(--red);border-color:var(--red);color:#fff;animation:mic-pulse 1.5s ease-in-out infinite}
+.mic-btn.processing{background:var(--orange);border-color:var(--orange);color:#fff;cursor:wait}
+@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(248,81,73,.4)}50%{box-shadow:0 0 0 12px rgba(248,81,73,0)}}
+.voice-status{font-size:.85rem;color:var(--muted);margin-top:.5rem;text-align:center}
+.voice-transcript,.voice-response{margin-top:.75rem;padding:.75rem;border-radius:6px;font-size:.9rem;line-height:1.5;min-height:20px}
+.voice-transcript{background:#1a2332;border:1px solid #1f3a5f;color:var(--accent)}
+.voice-response{background:#1a2a1a;border:1px solid #1f4020;color:var(--green)}
+.voice-actions{margin-top:.5rem;display:flex;gap:.5rem}
+.btn-play{background:var(--purple);color:#fff;border-color:var(--purple)}
+.btn-play:hover{opacity:.85}
+.btn-play:disabled{opacity:.3;cursor:not-allowed}
+.divider{border:0;border-top:1px solid var(--border);margin:2rem 0}
+/* RAG Documents */
+.rag-upload-area{border:2px dashed var(--border);border-radius:8px;padding:1.5rem;text-align:center;margin-bottom:1rem;cursor:pointer;transition:.2s}
+.rag-upload-area:hover{border-color:var(--accent)}
+.rag-upload-area input{display:none}
+.rag-form{display:flex;gap:.5rem;margin-bottom:1rem}
+.rag-form input[type="text"]{flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)}
+.doc-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.doc-table th{color:var(--accent);text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--border)}
+.doc-table td{padding:.4rem .5rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.doc-status-ready{color:var(--green)}
+.doc-status-processing{color:var(--orange)}
+.doc-status-failed{color:var(--red)}
+.btn-sm{padding:3px 10px;font-size:.78rem;border-radius:4px}
+.btn-danger{background:var(--red);color:#fff;border-color:var(--red)}
+.btn-danger:hover{opacity:.85}
 </style>
 </head>
 <body>
+
+<h1>AI Employee Platform</h1>
+<h2>Voice Assistant & HITL Dashboard</h2>
+
+<!-- Voice Widget -->
+<div class="card voice-card">
+  <div class="card-header"><h3>Voice Assistant</h3></div>
+  <div class="voice-layout">
+    <div class="voice-mic">
+      <button class="mic-btn" id="micBtn" onclick="toggleRecording()" title="Click to record">
+        &#x1F3A4;
+      </button>
+      <div class="voice-status" id="voiceStatus">Click mic to speak</div>
+    </div>
+    <div class="voice-content">
+      <div class="voice-transcript" id="voiceTranscript"></div>
+      <div class="voice-response" id="voiceResponse"></div>
+      <div class="voice-actions" id="voiceActions" style="display:none">
+        <button class="btn btn-play" id="btnPlay" onclick="playResponseAudio()" disabled>Play Response</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- Voice Tools -->
+<div class="card voice-card">
+  <div class="card-header"><h3>Voice Tools</h3></div>
+  <div class="voice-layout">
+    <div class="voice-mic">
+      <button class="mic-btn" id="toolMicBtn" onclick="toggleToolRecording()" title="Record for speech-to-text">
+        &#x1F3A4;
+      </button>
+      <div class="voice-status" id="toolMicStatus">Click mic to record audio</div>
+    </div>
+    <div class="voice-content">
+      <div class="voice-transcript" id="toolTranscript"></div>
+      <div class="voice-actions" style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0">
+        <button class="btn btn-play" onclick="runTool('detect')">Detect Language</button>
+        <button class="btn btn-play" onclick="runTool('translate')">Translate</button>
+        <button class="btn btn-play" onclick="runTool('transliterate')">Transliterate</button>
+        <button class="btn btn-play" onclick="runTool('stt-translate')">Speech-to-Text Translate</button>
+      </div>
+      <div class="voice-response" id="toolResponse"></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- Document Management (RAG) -->
+<div class="card voice-card">
+  <div class="card-header"><h3>&#x1F4C4; Document Management (RAG)</h3></div>
+
+    <div class="rag-upload-area" id="ragDropZone" onclick="document.getElementById('ragFileInput').click()">
+    <div id="ragDropText">Drop a .txt, .pdf, or .md file here, or click to browse</div>
+    <input type="file" id="ragFileInput" accept=".txt,.md,.csv,.json,.html,.xml,.pdf" onchange="uploadRagFile(this)">
+  </div>
+
+  <div class="rag-form">
+    <input type="text" id="ragTitle" placeholder="Document title...">
+    <button class="btn btn-claim btn-sm" onclick="publishRagText()">Publish Text</button>
+    <button class="btn btn-sm" onclick="listRagDocs()">Refresh</button>
+  </div>
+  <textarea id="ragContent" placeholder="Or paste text content here..." style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px;font-family:monospace;font-size:.85rem;resize:vertical;margin-bottom:.5rem"></textarea>
+
+  <div id="ragStatus" style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem"></div>
+  <div id="ragDocList" style="max-height:300px;overflow-y:auto"></div>
+
+  <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border)">
+    <div style="display:flex;gap:.5rem">
+      <input type="text" id="ragQuery" placeholder="Ask a question about your documents..." style="flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+      <button class="btn btn-claim btn-sm" onclick="askRagQuestion()">Ask</button>
+    </div>
+    <div id="ragAnswer" style="margin-top:.5rem;font-size:.9rem;line-height:1.5;max-height:250px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- HITL Tasks -->
 <div class="header">
-  <h1>HITL Dashboard</h1>
+  <h1 style="margin-bottom:0">HITL Dashboard</h1>
   <span class="badge badge-pending" id="count-badge">0 pending</span>
 </div>
 <div class="refresh">
   <button onclick="loadTasks()">Refresh</button>
 </div>
 <div id="task-list"><div class="empty">Loading tasks...</div></div>
+
 <script>
-const API = '/api/human-tasks';
+const SPEECH_URL = 'http://localhost:8006';
+const ORCHESTRATOR_URL = 'http://localhost:8001';
+const HITL_API = '/api/human-tasks';
+
+// ── HITL Tasks (existing) ──
 
 async function loadTasks() {
   try {
     const [tasksRes, countRes] = await Promise.all([
-      fetch(API), fetch(API + '/count')
+      fetch(HITL_API), fetch(HITL_API + '/count')
     ]);
     const tasks = await tasksRes.json();
     const { pending } = await countRes.json();
@@ -89,7 +212,7 @@ async function claimTask(id) {
   btn.disabled = true;
   btn.textContent = '...';
   try {
-    await fetch(`${API}/${id}/claim`, { method: 'POST' });
+    await fetch(`${HITL_API}/${id}/claim`, { method: 'POST' });
     loadTasks();
   } catch(e) {
     btn.disabled = false;
@@ -102,7 +225,7 @@ async function resolveTask(id) {
   btn.disabled = true;
   btn.textContent = '...';
   try {
-    await fetch(`${API}/${id}/resolve`, {
+    await fetch(`${HITL_API}/${id}/resolve`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({resolution_note: 'Resolved by operator', assigned_to: 'operator'})
@@ -116,7 +239,446 @@ async function resolveTask(id) {
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+// ── Voice Assistant ──
+
+let mediaRecorder = null;
+let audioChunks = [];
+let responseAudioBase64 = null;
+
+const micBtn = document.getElementById('micBtn');
+const voiceStatus = document.getElementById('voiceStatus');
+const voiceTranscript = document.getElementById('voiceTranscript');
+const voiceResponse = document.getElementById('voiceResponse');
+const voiceActions = document.getElementById('voiceActions');
+const btnPlay = document.getElementById('btnPlay');
+
+async function toggleRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+    return;
+  }
+
+  if (mediaRecorder && mediaRecorder.state === 'inactive') {
+    startNewRecording();
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      processAudio();
+    };
+    startNewRecording();
+  } catch (e) {
+    voiceStatus.textContent = 'Microphone access denied';
+  }
+}
+
+function startNewRecording() {
+  audioChunks = [];
+  mediaRecorder.start();
+  micBtn.classList.add('recording');
+  micBtn.classList.remove('processing');
+  voiceStatus.textContent = 'Listening...';
+  voiceTranscript.textContent = '';
+  voiceResponse.textContent = '';
+  voiceActions.style.display = 'none';
+  responseAudioBase64 = null;
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+  micBtn.classList.remove('recording');
+  micBtn.classList.add('processing');
+  voiceStatus.textContent = 'Processing...';
+}
+
+async function processAudio() {
+  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+  try {
+    const transcript = await transcribeAudio(audioBlob);
+    voiceTranscript.textContent = transcript;
+    voiceStatus.textContent = 'Got it! Thinking...';
+
+    const agentResponse = await runAgent(transcript);
+    voiceResponse.textContent = agentResponse;
+    voiceStatus.textContent = '';
+
+    try {
+      await synthesizeAudio(agentResponse);
+      voiceActions.style.display = 'flex';
+      btnPlay.disabled = false;
+      voiceStatus.textContent = 'Ready';
+    } catch (ttsErr) {
+      voiceStatus.textContent = 'Response ready (TTS unavailable: ' + ttsErr.message + ')';
+    }
+  } catch (e) {
+    voiceStatus.textContent = 'Error: ' + e.message;
+  }
+
+  micBtn.classList.remove('processing');
+}
+
+async function transcribeAudio(audioBlob) {
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'recording.webm');
+  formData.append('model', 'saaras:v3');
+
+  const res = await fetch(`${SPEECH_URL}/api/speech-to-text`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error('STT failed: ' + res.status);
+  const data = await res.json();
+  return data.transcript || '(no transcript)';
+}
+
+async function runAgent(text) {
+  const res = await fetch(`${ORCHESTRATOR_URL}/api/agent/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_input: text }),
+  });
+
+  if (!res.ok) throw new Error('Agent failed: ' + res.status);
+  const data = await res.json();
+  return data.final_response || 'No response generated.';
+}
+
+async function synthesizeAudio(text) {
+  voiceStatus.textContent = 'Generating voice...';
+
+  const res = await fetch(`${SPEECH_URL}/api/text-to-speech`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text.substring(0, 2000) }),
+  });
+
+  if (!res.ok) throw new Error('TTS failed: ' + res.status);
+  const data = await res.json();
+
+  if (data.error) {
+    voiceStatus.textContent = 'TTS error: ' + data.error;
+    throw new Error('TTS error: ' + data.error);
+  }
+
+  if (!data.audio_base64 || data.audio_bytes === 0) {
+    voiceStatus.textContent = 'TTS returned empty audio. Try shorter text.';
+    throw new Error('TTS: empty audio response');
+  }
+
+  responseAudioBase64 = data.audio_base64;
+}
+
+function playResponseAudio() {
+  if (!responseAudioBase64) {
+    voiceStatus.textContent = 'No audio to play. Try again.';
+    return;
+  }
+
+  try {
+    const byteChars = atob(responseAudioBase64);
+    const byteNums = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNums[i] = byteChars.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNums);
+    const blob = new Blob([byteArray], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.play().catch(err => {
+      voiceStatus.textContent = 'Playback blocked. Click play again or interact with page first.';
+    });
+  } catch (e) {
+    voiceStatus.textContent = 'Audio decode failed: ' + e.message;
+  }
+}
+
+// ── Voice Tools ──
+
+let toolMediaRecorder = null;
+let toolAudioChunks = [];
+let toolAudioBlob = null;
+
+const toolMicBtn = document.getElementById('toolMicBtn');
+const toolMicStatus = document.getElementById('toolMicStatus');
+const toolTranscript = document.getElementById('toolTranscript');
+const toolResponse = document.getElementById('toolResponse');
+
+async function toggleToolRecording() {
+  if (toolMediaRecorder && toolMediaRecorder.state === 'recording') {
+    stopToolRecording();
+    return;
+  }
+
+  if (toolMediaRecorder && toolMediaRecorder.state === 'inactive') {
+    startNewToolRecording();
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    toolMediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    toolMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) toolAudioChunks.push(e.data); };
+    toolMediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      processToolAudio();
+    };
+    startNewToolRecording();
+  } catch (e) {
+    toolMicStatus.textContent = 'Microphone access denied';
+  }
+}
+
+function startNewToolRecording() {
+  toolAudioChunks = [];
+  toolAudioBlob = null;
+  toolMediaRecorder.start();
+  toolMicBtn.classList.add('recording');
+  toolMicBtn.classList.remove('processing');
+  toolMicStatus.textContent = 'Listening...';
+  toolTranscript.textContent = '';
+  toolResponse.textContent = '';
+}
+
+function stopToolRecording() {
+  toolMediaRecorder.stop();
+  toolMicBtn.classList.remove('recording');
+  toolMicBtn.classList.add('processing');
+  toolMicStatus.textContent = 'Processing...';
+}
+
+async function processToolAudio() {
+  toolAudioBlob = new Blob(toolAudioChunks, { type: 'audio/webm' });
+  try {
+    const transcript = await transcribeAudio(toolAudioBlob);
+    toolTranscript.textContent = transcript;
+    toolMicStatus.textContent = 'Ready — choose a tool above';
+  } catch (e) {
+    toolMicStatus.textContent = 'Error: ' + e.message;
+  }
+  toolMicBtn.classList.remove('processing');
+}
+
+async function runTool(tool) {
+  const text = toolTranscript.textContent.trim();
+  if (!text && tool !== 'stt-translate') {
+    toolResponse.textContent = 'No text available. Record or transcribe audio first.';
+    return;
+  }
+
+  toolResponse.textContent = 'Running...';
+  try {
+    if (tool === 'detect') {
+      const res = await fetch(`${SPEECH_URL}/api/detect-language`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error('Detect failed: ' + res.status);
+      const data = await res.json();
+      toolResponse.textContent = `Language: ${data.language_code}\nScript: ${data.script_code}`;
+    } else if (tool === 'translate') {
+      const res = await fetch(`${SPEECH_URL}/api/translate-text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, source_language_code: 'auto', target_language_code: 'en-IN' }),
+      });
+      if (!res.ok) throw new Error('Translate failed: ' + res.status);
+      const data = await res.json();
+      toolResponse.textContent = data.translated_text;
+    } else if (tool === 'transliterate') {
+      const res = await fetch(`${SPEECH_URL}/api/transliterate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, source_language_code: 'hi-IN', target_language_code: 'en-IN' }),
+      });
+      if (!res.ok) throw new Error('Transliterate failed: ' + res.status);
+      const data = await res.json();
+      toolResponse.textContent = data.transliterated_text;
+    } else if (tool === 'stt-translate') {
+      if (!toolAudioBlob) {
+        toolResponse.textContent = 'No audio recorded. Click the mic first.';
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', toolAudioBlob, 'recording.webm');
+      formData.append('source_language_code', 'unknown');
+      formData.append('target_language_code', 'en-IN');
+      const res = await fetch(`${SPEECH_URL}/api/speech-to-text-translate`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('STT translate failed: ' + res.status);
+      const data = await res.json();
+      toolResponse.textContent = data.transcript;
+    }
+  } catch (e) {
+    toolResponse.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── RAG Document Management ──
+
+const RAG_URL = 'http://localhost:8004';
+
+async function uploadRagFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('ragDropText').textContent = `Uploading: ${file.name}...`;
+  document.getElementById('ragStatus').textContent = 'Uploading...';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', file.name);
+
+  try {
+    const res = await fetch(`${RAG_URL}/api/documents/upload`, { method: 'POST', body: formData });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    document.getElementById('ragDropText').textContent = 'Drop a file here, or click to browse';
+    document.getElementById('ragStatus').textContent = `Uploaded: ${data.title} (${data.chunks_count} chunks)`;
+    document.getElementById('ragFileInput').value = '';
+    listRagDocs();
+  } catch (e) {
+    document.getElementById('ragStatus').textContent = 'Upload failed: ' + e.message;
+    document.getElementById('ragDropText').textContent = 'Drop a file here, or click to browse';
+  }
+}
+
+async function publishRagText() {
+  const title = document.getElementById('ragTitle').value.trim() || 'Untitled';
+  const content = document.getElementById('ragContent').value.trim();
+  if (!content) { document.getElementById('ragStatus').textContent = 'Enter content first'; return; }
+
+  document.getElementById('ragStatus').textContent = 'Publishing...';
+  try {
+    const res = await fetch(`${RAG_URL}/api/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content }),
+    });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    document.getElementById('ragStatus').textContent = `Published: ${data.title} (${data.chunks_count} chunks)`;
+    document.getElementById('ragTitle').value = '';
+    document.getElementById('ragContent').value = '';
+    listRagDocs();
+  } catch (e) {
+    document.getElementById('ragStatus').textContent = 'Publish failed: ' + e.message;
+  }
+}
+
+async function listRagDocs() {
+  try {
+    const res = await fetch(`${RAG_URL}/api/documents`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const docs = data.items || data;
+    if (!docs.length) {
+      document.getElementById('ragDocList').innerHTML = '<div style="color:var(--muted);text-align:center;padding:1rem">No documents uploaded yet</div>';
+      return;
+    }
+    document.getElementById('ragDocList').innerHTML = `
+      <table class="doc-table">
+        <tr><th>Title</th><th>Status</th><th>Chunks</th><th>Created</th><th></th></tr>
+        ${docs.map(d => `
+          <tr>
+            <td>${escapeHtml(d.title)}</td>
+            <td class="doc-status-${d.status}">${d.status}</td>
+            <td>${d.chunks_count}</td>
+            <td style="font-size:.78rem;color:var(--muted)">${new Date(d.created_at).toLocaleDateString()}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteRagDoc('${d.id}')">Del</button></td>
+          </tr>
+        `).join('')}
+      </table>`;
+  } catch (e) {
+    document.getElementById('ragDocList').innerHTML = '<div style="color:var(--red)">Failed to load documents</div>';
+  }
+}
+
+async function deleteRagDoc(id) {
+  try {
+    await fetch(`${RAG_URL}/api/documents/${id}`, { method: 'DELETE' });
+    listRagDocs();
+    document.getElementById('ragStatus').textContent = 'Document deleted';
+  } catch (e) {
+    document.getElementById('ragStatus').textContent = 'Delete failed: ' + e.message;
+  }
+}
+
+async function askRagQuestion() {
+  const query = document.getElementById('ragQuery').value.trim();
+  if (!query) return;
+  const answerDiv = document.getElementById('ragAnswer');
+  answerDiv.innerHTML = '<em style="color:var(--muted)">Searching documents...</em>';
+
+  try {
+    const ragRes = await fetch(`${RAG_URL}/api/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, top_k: 3 }),
+    });
+    if (!ragRes.ok) throw new Error('Query failed: ' + ragRes.status);
+    const ragData = await ragRes.json();
+
+    if (!ragData.results || ragData.results.length === 0) {
+      answerDiv.innerHTML = '<span style="color:var(--orange)">No relevant documents found. Upload some documents first.</span>';
+      return;
+    }
+
+    const contextParts = ragData.results.map((r, i) => `[Doc ${i + 1}: ${r.document_title}]\n${r.content}`).join('\n\n');
+
+    answerDiv.innerHTML = '<em style="color:var(--muted)">Asking AI to answer based on documents...</em>';
+
+    const agentRes = await fetch(`${ORCHESTRATOR_URL}/api/agent/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_input: `Based on the following documents, answer this question: "${query}"\n\nDocuments:\n${contextParts}` }),
+    });
+    if (!agentRes.ok) throw new Error('Agent failed: ' + agentRes.status);
+    const agentData = await agentRes.json();
+
+    let html = `<div style="color:var(--accent);margin-bottom:.5rem"><strong>Q:</strong> ${escapeHtml(query)}</div>`;
+    html += `<div style="color:var(--green);margin-bottom:.75rem"><strong>A:</strong> ${escapeHtml(agentData.final_response)}</div>`;
+    html += `<div style="font-size:.8rem;color:var(--muted)"><strong>Sources:</strong><br>`;
+    ragData.results.forEach((r, i) => {
+      html += `  ${i + 1}. <strong>${escapeHtml(r.document_title)}</strong> — "${escapeHtml(r.content.substring(0, 100))}..."<br>`;
+    });
+    html += `</div>`;
+    answerDiv.innerHTML = html;
+
+  } catch (e) {
+    answerDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+}
+
+(function () {
+  const dropZone = document.getElementById('ragDropZone');
+  if (!dropZone) return;
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; });
+  dropZone.addEventListener('dragleave', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--border)'; });
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--border)';
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const input = document.getElementById('ragFileInput');
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      uploadRagFile(input);
+    }
+  });
+})();
+
 loadTasks();
+listRagDocs();
 setInterval(loadTasks, 15000);
 </script>
 </body>

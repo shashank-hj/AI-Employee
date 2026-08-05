@@ -1,0 +1,31 @@
+[project]
+name = "ai-employee-speech"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]",
+    "uvicorn[standard]",
+    "httpx",
+    "structlog",
+    "pydantic-settings",
+    "python-multipart",
+    "ai-employee-shared-auth",
+    "ai-employee-shared-events",
+    "ai-employee-shared-models",
+    "ai-employee-shared-utils",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["speech", "speech.providers", "speech.routers", "speech.schemas"]
+package-dir = {"speech" = "."}

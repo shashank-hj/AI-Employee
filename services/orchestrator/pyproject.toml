@@ -8,6 +8,8 @@ dependencies = [
     "httpx",
     "structlog",
     "pydantic-settings",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
     "ai-employee-shared-auth",
     "ai-employee-shared-events",
     "ai-employee-shared-models",
@@ -31,5 +33,20 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["orchestrator"]
-package-dir = {"orchestrator" = "."}
+packages = [
+    "orchestrator",
+    "orchestrator.tools",
+    "orchestrator.graph",
+    "orchestrator.models",
+    "orchestrator.planner",
+    "orchestrator.routers",
+    "orchestrator.schemas",
+    "orchestrator.services",
+    "orchestrator.context",
+    "orchestrator.database",
+    "orchestrator.workers",
+]
+package-dir = { "orchestrator" = "." }
+
+[tool.setuptools.package-data]
+"orchestrator" = ["static/*"]

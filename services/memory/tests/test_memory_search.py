@@ -171,7 +171,7 @@ class TestEmbeddingService:
             return vec
         import asyncio
         vec = asyncio.new_event_loop().run_until_complete(run())
-        assert len(vec) == 1536
+        assert len(vec) == 768
         assert all(isinstance(x, float) for x in vec)
 
     def test_embedding_deterministic(self):

@@ -8,8 +8,10 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from orchestrator.config import settings
-from orchestrator.container import _build_rag_client, _build_generate_llm
+from orchestrator.container import _build_rag_client, _build_generate_llm, get_memory_writer_worker
+from orchestrator.database.session import engine
 from orchestrator.routers import health, agent, human_tasks
+from shared.models.base import Base
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
 
@@ -22,8 +24,18 @@ APP_VERSION = "0.1.0"
 async def lifespan(app: FastAPI):
     setup_logging()
 
+    import orchestrator.models.human_task  # noqa: F811 — register models on Base
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("database_initialized")
+    except Exception as e:
+        logger.warning("database_init_skipped", error=str(e))
+
     rag_client = app.state.rag_client
     llm_provider = app.state.llm_provider
+    memory_writer = app.state.memory_writer
 
     _log_startup_config()
 
@@ -36,7 +48,11 @@ async def lifespan(app: FastAPI):
         if isinstance(result, Exception):
             logger.error("startup_health_check_error", error=str(result))
 
+    memory_writer.start()
+
     yield
+
+    await memory_writer.stop()
 
 
 def _log_startup_config() -> None:
@@ -117,6 +133,7 @@ def create_app() -> FastAPI:
 
     app.state.rag_client = _build_rag_client()
     app.state.llm_provider = _build_generate_llm()
+    app.state.memory_writer = get_memory_writer_worker()
 
     app.include_router(health.router, tags=["Health"])
     app.include_router(agent.router, tags=["Agent"])

@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "memory"
 
+    EMBEDDING_PROVIDER: str = "ollama"
+    OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
+    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
+    EMBEDDING_TIMEOUT: float = 30.0
+
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 
 

@@ -15,7 +15,9 @@ class MemoryType(str, Enum):
 class MemoryCreate(BaseModel):
     content: str
     memory_type: MemoryType = MemoryType.CONVERSATION
+    importance: float = 0.5
     metadata: Optional[dict[str, Any]] = None
+    source: Optional[str] = None
     user_id: Optional[str] = None
     session_id: Optional[str] = None
 

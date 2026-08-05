@@ -9,7 +9,7 @@ from memory.database.session import get_db
 from memory.repositories.long_term import LongTermMemoryRepository
 from memory.repositories.conversation import ConversationRepository
 from memory.repositories.profile import ProfileRepository
-from memory.services.stores import SessionStore, MockEmbeddingService, BaseEmbeddingService
+from memory.services.stores import SessionStore, MockEmbeddingService, OllamaEmbeddingService, BaseEmbeddingService
 from memory.services.memory_service import MemoryService
 
 
@@ -25,6 +25,12 @@ def get_session_store() -> SessionStore:
 
 @lru_cache()
 def get_embedding_service() -> BaseEmbeddingService:
+    if settings.EMBEDDING_PROVIDER == "ollama":
+        return OllamaEmbeddingService(
+            base_url=settings.OLLAMA_BASE_URL,
+            model=settings.OLLAMA_EMBED_MODEL,
+            timeout=settings.EMBEDDING_TIMEOUT,
+        )
     return MockEmbeddingService()
 
 

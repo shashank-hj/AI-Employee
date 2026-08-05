@@ -18,6 +18,7 @@ dependencies = [
     "opentelemetry-exporter-otlp",
     "redis",
     "pgvector",
+    "pypdf",
 ]
 
 [project.optional-dependencies]
@@ -32,5 +33,13 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["rag"]
+packages = [
+    "rag",
+    "rag.database",
+    "rag.models",
+    "rag.repositories",
+    "rag.routers",
+    "rag.schemas",
+    "rag.services",
+]
 package-dir = {"rag" = "."}

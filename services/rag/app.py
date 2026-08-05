@@ -1,18 +1,32 @@
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from rag.config import settings
+from rag.database.session import engine
 from rag.routers import health, documents
+from shared.models.base import Base
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
+
+logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    import rag.models  # noqa: F811 — register rag models on Base
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("database_initialized")
+    except Exception as e:
+        logger.warning("database_init_skipped", error=str(e))
     yield
 
 

@@ -18,11 +18,16 @@ class WorkflowCreate(BaseModel):
     description: Optional[str] = None
     workflow_type: str = "default"
     input_data: Optional[dict[str, Any]] = None
-    steps: Optional[list[str]] = None
+    steps: Optional[list[dict[str, Any]]] = None
 
 
-class WorkflowResponse(WorkflowCreate):
+class WorkflowResponse(BaseModel):
     id: str
+    name: str
+    description: Optional[str] = None
+    workflow_type: str = "default"
+    input_data: Optional[dict[str, Any]] = None
+    steps: Optional[list[dict[str, Any]]] = None
     status: WorkflowStatus = WorkflowStatus.PENDING
     current_step: Optional[str] = None
     output_data: Optional[dict[str, Any]] = None

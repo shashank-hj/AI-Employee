@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+from io import BytesIO
+
+from fastapi import APIRouter, Depends, UploadFile, File, Form
 
 from rag.container import get_rag_service
 from rag.schemas.documents import (
@@ -13,8 +15,47 @@ from shared.utils.response import paginated_response
 router = APIRouter(prefix="/api")
 
 
+def _extract_text(file_bytes: bytes, filename: str = "", content_type: str = "") -> str:
+    is_pdf = (
+        file_bytes[:5] == b"%PDF-"
+        or filename.lower().endswith(".pdf")
+        or "pdf" in (content_type or "").lower()
+    )
+    if is_pdf:
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(BytesIO(file_bytes))
+            pages = [page.extract_text() or "" for page in reader.pages]
+            return "\n\n".join(pages)
+        except Exception:
+            pass
+    try:
+        return file_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return file_bytes.decode("utf-8", errors="replace")
+
+
+@router.post("/documents/upload", response_model=DocumentResponse, status_code=201)
+async def upload_document_file(
+    file: UploadFile = File(...),
+    title: str = Form(default=""),
+    source: str = Form(default=""),
+    service: RAGService = Depends(get_rag_service),
+):
+    raw = await file.read()
+    content = _extract_text(raw, file.filename or "", file.content_type or "")
+    doc_title = title or file.filename or "Untitled"
+    data = DocumentUpload(
+        title=doc_title,
+        content=content,
+        source=source or file.filename,
+        content_type=file.content_type or "text/plain",
+    )
+    return await service.ingest_document(data)
+
+
 @router.post("/documents", response_model=DocumentResponse, status_code=201)
-async def upload_document(
+async def upload_document_json(
     data: DocumentUpload,
     service: RAGService = Depends(get_rag_service),
 ):

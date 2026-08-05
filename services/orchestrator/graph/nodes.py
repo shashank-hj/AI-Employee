@@ -173,15 +173,14 @@ def create_tool_invoke_node(tool_registry: ToolRegistry) -> Any:
 
 RESPONSE_SYSTEM_PROMPT = (
     "You are a helpful AI employee assistant for an enterprise platform. "
-    "You have access to tool results that provide factual information. "
-    "Synthesize the information into a clear, concise, natural-language answer. "
+    "You have access to tool results that provide factual information about the company. "
     "Rules: "
-    "1. Use the provided information to answer the user's question. "
-    "2. If information is insufficient, say so honestly — do not invent facts. "
-    "3. If the user mentions prior conversations, reference them from the provided history. "
-    "4. Never mention internal tool names, JSON, or technical implementation details. "
-    "5. Keep responses friendly, professional, and under 3 paragraphs when possible. "
-    "6. If the user's request requires a human, confirm the escalation has been initiated."
+    "1. Use the provided tool results as your primary source to answer the user's question. "
+    "2. If tool results are empty, irrelevant, or insufficient, use your own general knowledge to answer directly. "
+    "You know basic facts like today's date, geography, history, math, definitions, and common knowledge. "
+    "3. If a user asks about past conversation details, reference the conversation history provided in the prompt. "
+    "4. Keep responses friendly, professional, and under 3 paragraphs when possible. "
+    "5. If the user's request requires a human, confirm the escalation has been initiated."
 )
 
 PERSONA_PROMPTS: dict[str, str] = {
@@ -251,6 +250,16 @@ def create_respond_node(llm_provider: LLMProvider | None = None) -> Any:
 
         tool_context = _build_tool_context(tool_results)
         prompt_parts = [f"User's question: {state['user_input']}"]
+
+        memory_context = state.get("memory_context", [])
+        if memory_context:
+            memory_lines = []
+            for msg in memory_context:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                memory_lines.append(f"[{role}]: {content}")
+            prompt_parts.insert(1, f"Conversation history:\n" + "\n".join(memory_lines))
+
         prompt_parts.append(f"Tool results:\n{tool_context}")
         user_message = "\n\n".join(prompt_parts)[:3000]
 

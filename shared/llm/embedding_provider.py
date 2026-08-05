@@ -18,7 +18,7 @@ class BaseEmbeddingProvider(ABC):
 
 
 class MockEmbeddingProvider(BaseEmbeddingProvider):
-    DIMENSION = 1536
+    DIMENSION = 768
 
     @property
     def dimension(self) -> int:

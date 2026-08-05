@@ -11,6 +11,8 @@ from orchestrator.planner.base import BasePlanner
 from orchestrator.tools.registry import ToolRegistry
 from orchestrator.context.builder import ContextBuilder
 from orchestrator.schemas.agent import AgentRequest, AgentResponse, ExecutionStep, ToolResult
+from orchestrator.services.memory_client import MemoryClient
+from orchestrator.workers.memory_writer import MemoryWriterWorker
 from shared.utils.exceptions import AppException
 
 logger = structlog.get_logger(__name__)
@@ -23,11 +25,15 @@ class AgentService:
         planner: BasePlanner,
         context_builder: ContextBuilder,
         llm_provider: LLMProvider | None = None,
+        memory_writer: MemoryWriterWorker | None = None,
+        memory_client: MemoryClient | None = None,
     ) -> None:
         self._graph = build_orchestrator_graph(
             tool_registry, planner, context_builder, llm_provider,
         )
         self._tool_registry = tool_registry
+        self._memory_writer = memory_writer
+        self._memory_client = memory_client
 
     async def run(self, request: AgentRequest) -> AgentResponse:
         start = time.perf_counter()
@@ -80,6 +86,34 @@ class AgentService:
             num_steps=len(steps),
             duration_ms=round(elapsed_ms, 2),
         )
+
+        # ── M5 Memory Writer: enqueue conversation for background fact extraction ──
+        if self._memory_writer is not None:
+            await self._memory_writer.enqueue(
+                {
+                    "request_id": request_id,
+                    "user_id": request.user_id,
+                    "session_id": request.session_id,
+                    "user_input": request.user_input,
+                    "final_response": response.final_response,
+                    "tool_results": final_state.get("tool_results", []),
+                    "execution_log": final_state.get("execution_log", []),
+                    "completed_at": response.completed_at,
+                }
+            )
+
+        # ── Store session messages for context retrieval ──
+        if self._memory_client is not None and request.session_id:
+            try:
+                await self._memory_client.add_message(
+                    request.session_id, "user", request.user_input,
+                )
+                await self._memory_client.add_message(
+                    request.session_id, "assistant", response.final_response,
+                )
+                logger.info("session_message_stored", session_id=request.session_id)
+            except Exception as exc:
+                logger.warning("session_message_store_failed", error=str(exc))
 
         return response
 

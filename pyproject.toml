@@ -47,6 +47,7 @@ ai-employee-tool-registry = { workspace = true }
 ai-employee-memory = { workspace = true }
 ai-employee-rag = { workspace = true }
 ai-employee-workflow = { workspace = true }
+ai-employee-speech = { workspace = true }
 ai-employee-shared-auth = { workspace = true }
 ai-employee-shared-events = { workspace = true }
 ai-employee-shared-models = { workspace = true }

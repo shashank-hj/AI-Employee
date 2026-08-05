@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     RAG_HEALTH_PATH: str = "/health"
     RAG_TIMEOUT: float = 5.0
 
+    # ── Memory Writer (M5) ──
+    MEMORY_WRITER_ENABLED: bool = True
+    MEMORY_WRITER_QUEUE_KEY: str = "memory_writer:queue"
+    MEMORY_WRITER_POLL_TIMEOUT: int = 5
+
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 
 

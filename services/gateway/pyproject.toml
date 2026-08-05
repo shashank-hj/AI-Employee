@@ -8,6 +8,8 @@ dependencies = [
     "httpx",
     "structlog",
     "pydantic-settings",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
     "ai-employee-shared-auth",
     "ai-employee-shared-events",
     "ai-employee-shared-models",
@@ -29,5 +31,12 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["gateway"]
+packages = [
+    "gateway",
+    "gateway.database",
+    "gateway.models",
+    "gateway.routers",
+    "gateway.schemas",
+    "gateway.services",
+]
 package-dir = {"gateway" = "."}

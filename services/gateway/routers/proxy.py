@@ -10,6 +10,7 @@ SERVICE_MAP = {
     "memory": settings.MEMORY_URL,
     "rag": settings.RAG_URL,
     "workflow": settings.WORKFLOW_URL,
+    "speech": settings.SPEECH_URL,
 }
 
 

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     MEMORY_URL: str = "http://memory:8003"
     RAG_URL: str = "http://rag:8004"
     WORKFLOW_URL: str = "http://workflow:8005"
+    SPEECH_URL: str = "http://speech:8006"
     OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://otel-collector:4317"
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "gateway"
