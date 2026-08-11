@@ -2,12 +2,16 @@ import json
 import uuid
 from typing import Any
 
+import structlog
+
 from shared.llm.base import LLMProvider
 
 from orchestrator.graph.state import AgentState, PlanStep
 from orchestrator.planner.base import BasePlanner
 from orchestrator.tools.registry import ToolRegistry
 from orchestrator.context.builder import ContextBuilder
+
+logger = structlog.get_logger(__name__)
 
 
 def create_receive_node() -> Any:
@@ -75,7 +79,10 @@ def create_plan_node(planner: BasePlanner) -> Any:
     return plan
 
 
-def create_execute_node(tool_registry: ToolRegistry) -> Any:
+def create_execute_node(
+    tool_registry: ToolRegistry,
+    approval_service=None,
+) -> Any:
     async def execute(state: AgentState) -> dict[str, Any]:
         plan = state["plan"]
         index = state["current_step_index"]
@@ -104,9 +111,49 @@ def create_execute_node(tool_registry: ToolRegistry) -> Any:
                 "tool_results": [{"tool_name": current_step["tool_name"], "success": False, "error": "Tool not found"}],
             }
 
+        # ── C4: HITL approval gate ──
+        if approval_service is not None and approval_service.requires_approval(current_step["tool_name"]):
+            try:
+                decision = await approval_service.check_or_request(
+                    session_id=state.get("session_id"),
+                    user_id=state.get("user_id"),
+                    user_input=state["user_input"],
+                    tool_name=current_step["tool_name"],
+                    parameters=current_step["parameters"],
+                )
+            except Exception as exc:
+                logger.error("approval_gate_error", tool_name=current_step["tool_name"], error=str(exc))
+                decision = None
+
+            if decision is None or not decision.approved:
+                message = (
+                    decision.message
+                    if decision is not None
+                    else "This action requires approval before it can be executed."
+                )
+                logger.info(
+                    "approval_pending",
+                    tool_name=current_step["tool_name"],
+                    task_id=getattr(decision, "task_id", None),
+                )
+                return {
+                    "awaiting_approval": True,
+                    "approval_task_id": getattr(decision, "task_id", None),
+                    "final_response": message,
+                    "execution_log": [
+                        {
+                            **step_log,
+                            "event": "step_awaiting_approval",
+                            "approval_task_id": getattr(decision, "task_id", None),
+                        }
+                    ],
+                }
+
         result = await tool.invoke(current_step["parameters"])
         return {
             "current_step_index": index + 1,
+            "awaiting_approval": False,
+            "approval_task_id": None,
             "tool_results": [
                 {
                     "tool_name": current_step["tool_name"],
@@ -215,9 +262,6 @@ PERSONA_PROMPTS: dict[str, str] = {
 
 
 def create_respond_node(llm_provider: LLMProvider | None = None) -> Any:
-    import structlog
-    logger = structlog.get_logger(__name__)
-
     async def respond(state: AgentState) -> dict[str, Any]:
         if state.get("final_response") is not None:
             logger.info(
@@ -377,17 +421,13 @@ def _build_natural_summary(tool_results: list[dict[str, Any]]) -> str:
 
 
 def _resolve_persona(state: AgentState) -> str:
+    from orchestrator.agents.roster import agent_roster
+
     plan = state.get("plan", [])
     if not plan:
         if state.get("final_response"):
-            return PERSONA_PROMPTS.get("escalate", RESPONSE_SYSTEM_PROMPT)
-        return RESPONSE_SYSTEM_PROMPT
+            return agent_roster.get("escalate").system_prompt
+        return agent_roster.get("general").system_prompt
 
     tool_names = [s["tool_name"] for s in plan]
-    if "search_pricing" in tool_names:
-        return PERSONA_PROMPTS["sales"]
-    if "lookup_order" in tool_names:
-        return PERSONA_PROMPTS["support"]
-    if "calendar" in tool_names or "schedule_demo" in tool_names:
-        return PERSONA_PROMPTS["booking"]
-    return PERSONA_PROMPTS.get("general", RESPONSE_SYSTEM_PROMPT)
+    return agent_roster.resolve_for_tools(tool_names).system_prompt

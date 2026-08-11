@@ -31,7 +31,11 @@ class _FakeLLMProvider(LLMProvider):
         self._confidence = confidence
         self._suggested_tools = suggested_tools or []
 
-    async def classify_intent(self, user_input: str) -> IntentClassification:
+    async def classify_intent(
+        self,
+        user_input: str,
+        context: str | None = None,
+    ) -> IntentClassification:
         return IntentClassification(
             intent=self._intent,
             confidence=self._confidence,
@@ -167,6 +171,21 @@ class TestLLMPlanner:
     @pytest.mark.asyncio
     async def test_suggested_tools_from_llm_override_map(self):
         llm = _FakeLLMProvider(
+            intent="sales",
+            confidence=0.92,
+            suggested_tools=["search_pricing", "search_documents"],
+        )
+        planner = LLMPlanner(llm_provider=llm)
+        state = _make_state("Show me enterprise pricing")
+        plan = await planner.create_plan(state)
+        assert len(plan) == 2
+        tool_names = [s["tool_name"] for s in plan]
+        assert "search_pricing" in tool_names
+        assert "search_documents" in tool_names
+
+    @pytest.mark.asyncio
+    async def test_suggested_tools_filtered_by_agent_allowlist(self):
+        llm = _FakeLLMProvider(
             intent="support",
             confidence=0.92,
             suggested_tools=["send_email", "search_documents"],
@@ -174,10 +193,9 @@ class TestLLMPlanner:
         planner = LLMPlanner(llm_provider=llm)
         state = _make_state("Send a follow-up email about my order delay")
         plan = await planner.create_plan(state)
-        assert len(plan) == 2
         tool_names = [s["tool_name"] for s in plan]
+        assert "send_email" not in tool_names
         assert "search_documents" in tool_names
-        assert "send_email" in tool_names
 
     @pytest.mark.asyncio
     async def test_invalid_suggested_tools_filtered(self):
@@ -233,7 +251,11 @@ class TestLLMPlanner:
     @pytest.mark.asyncio
     async def test_fallback_on_classification_error(self):
         class _ErrorLLM(LLMProvider):
-            async def classify_intent(self, user_input: str) -> IntentClassification:
+            async def classify_intent(
+                self,
+                user_input: str,
+                context: str | None = None,
+            ) -> IntentClassification:
                 raise RuntimeError("Simulated LLM failure")
             async def generate(self, system_prompt: str, user_message: str) -> LLMResponse:
                 return LLMResponse(content="", model="error")  # pragma: no cover

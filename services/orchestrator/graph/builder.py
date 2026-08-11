@@ -1,3 +1,4 @@
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import StateGraph, END, START
 
 from shared.llm.base import LLMProvider
@@ -22,13 +23,15 @@ def build_orchestrator_graph(
     planner: BasePlanner,
     context_builder: ContextBuilder,
     llm_provider: LLMProvider | None = None,
+    checkpointer: BaseCheckpointSaver | None = None,
+    approval_service=None,
 ) -> StateGraph:
     builder = StateGraph(AgentState)
 
     builder.add_node("receive", create_receive_node())
     builder.add_node("build_context", create_context_node(context_builder))
     builder.add_node("plan", create_plan_node(planner))
-    builder.add_node("execute", create_execute_node(tool_registry))
+    builder.add_node("execute", create_execute_node(tool_registry, approval_service))
     builder.add_node("tool_invoke", create_tool_invoke_node(tool_registry))
     builder.add_node("respond", create_respond_node(llm_provider))
 
@@ -56,4 +59,7 @@ def build_orchestrator_graph(
     builder.add_edge("tool_invoke", "execute")
     builder.add_edge("respond", END)
 
-    return builder.compile()
+    kwargs: dict = {}
+    if checkpointer is not None:
+        kwargs["checkpointer"] = checkpointer
+    return builder.compile(**kwargs)

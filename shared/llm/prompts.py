@@ -43,3 +43,15 @@ User: "What is the weather in Mumbai?"
 
 Return ONLY valid JSON with no markdown wrapping, no code fences, no additional text.
 Use the exact schema shown in the examples above."""
+
+INTENT_CONTEXT_BLOCK = """Conversation context (previous turns / known facts about this user):
+{context}
+
+Use this context to disambiguate the user's current message (e.g. resolve pronouns
+like "it", "that", "the order" to entities mentioned earlier). Classify ONLY the
+user's current message that follows, not the context itself.
+
+User's current message: {user_input}
+
+Return ONLY valid JSON with no markdown wrapping, no code fences, no additional text.
+Use the exact schema shown in the system prompt examples."""

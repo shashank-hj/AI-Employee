@@ -1,5 +1,5 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from orchestrator.app import create_app
 
@@ -115,7 +115,8 @@ class TestAgentRunEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["steps"][0]["tool_name"] == "schedule_meeting"
-        assert "Meeting" in data["final_response"] or "scheduled" in data["final_response"].lower()
+        lower = data["final_response"].lower()
+        assert "Meeting" in data["final_response"] or "scheduled" in lower
 
     @pytest.mark.asyncio
     async def test_run_email_request(self, client):
@@ -125,7 +126,8 @@ class TestAgentRunEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["steps"][0]["tool_name"] == "send_email"
-        assert "Email sent" in data["final_response"] or "delivered" in data["final_response"].lower()
+        lower = data["final_response"].lower()
+        assert "Email sent" in data["final_response"] or "delivered" in lower
 
     @pytest.mark.asyncio
     async def test_run_fallback_for_greeting(self, client):
@@ -146,6 +148,7 @@ class TestAgentRunEndpoint:
         assert set(data.keys()) == {
             "request_id", "user_input", "final_response",
             "steps", "execution_log", "completed_at", "duration_ms",
+            "channel", "channel_message_id", "tenant_id",
         }
         for step in data["steps"]:
             assert set(step.keys()) == {"step_index", "tool_name", "parameters", "result"}

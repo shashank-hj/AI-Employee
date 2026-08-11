@@ -1,20 +1,25 @@
-from uuid import UUID
 
 from tool_registry.models.tool import ToolModel
 from tool_registry.repositories.tool_repository import ToolRepository
 from tool_registry.schemas.tools import (
+    ExecutionConfig,
     RetryPolicy,
     ToolCreate,
+    ToolInvokeRequest,
+    ToolInvokeResponse,
     ToolListParams,
     ToolResponse,
     ToolUpdate,
 )
+from tool_registry.services.tool_executor import ToolExecutor
+
 from shared.utils.exceptions import ConflictException, NotFoundException
 
 
 class ToolService:
-    def __init__(self, repository: ToolRepository) -> None:
+    def __init__(self, repository: ToolRepository, executor: ToolExecutor | None = None) -> None:
         self._repo = repository
+        self._executor = executor or ToolExecutor()
 
     async def register_tool(self, data: ToolCreate) -> ToolResponse:
         existing = await self._repo.get_by_name(data.name)
@@ -33,6 +38,8 @@ class ToolService:
             retry_policy=data.retry_policy.model_dump(),
             tags=data.tags,
             is_active=True,
+            execution_type=data.execution_type.value,
+            execution_config=data.execution_config.model_dump(exclude_none=True),
         )
         created = await self._repo.create(tool)
         return self._model_to_response(created)
@@ -69,8 +76,45 @@ class ToolService:
         if "retry_policy" in update_dict and isinstance(update_dict["retry_policy"], RetryPolicy):
             update_dict["retry_policy"] = update_dict["retry_policy"].model_dump()
 
+        if "execution_config" in update_dict and isinstance(
+            update_dict["execution_config"], ExecutionConfig
+        ):
+            update_dict["execution_config"] = update_dict["execution_config"].model_dump(
+                exclude_none=True
+            )
+
+        if "execution_type" in update_dict and update_dict["execution_type"] is not None:
+            update_dict["execution_type"] = update_dict["execution_type"].value
+
         updated = await self._repo.update(tool, update_dict)
         return self._model_to_response(updated)
+
+    async def invoke_tool(
+        self,
+        tool_id: str,
+        request: ToolInvokeRequest,
+    ) -> ToolInvokeResponse:
+        tool = await self._get_or_raise(tool_id)
+        if not tool.is_active:
+            return ToolInvokeResponse(
+                success=False,
+                error="Tool is inactive",
+                tool_id=str(tool.id),
+                tool_name=tool.name,
+            )
+
+        success, data, error = await self._executor.execute(
+            tool,
+            request.parameters,
+            request.context,
+        )
+        return ToolInvokeResponse(
+            success=success,
+            data=data,
+            error=error,
+            tool_id=str(tool.id),
+            tool_name=tool.name,
+        )
 
     async def delete_tool(self, tool_id: str) -> None:
         tool = await self._get_or_raise(tool_id)
@@ -85,6 +129,7 @@ class ToolService:
     @staticmethod
     def _model_to_response(tool: ToolModel) -> ToolResponse:
         retry = tool.retry_policy or {}
+        config = tool.execution_config or {}
         return ToolResponse(
             id=str(tool.id),
             name=tool.name,
@@ -102,6 +147,8 @@ class ToolService:
             ),
             tags=tool.tags or [],
             is_active=tool.is_active,
+            execution_type=tool.execution_type,
+            execution_config=ExecutionConfig(**config),
             created_at=tool.created_at,
             updated_at=tool.updated_at,
         )

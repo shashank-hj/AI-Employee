@@ -18,6 +18,7 @@ class SarvamProvider(OpenAICompatibleProvider):
         timeout: float = DEFAULT_TIMEOUT,
         temperature: float = DEFAULT_TEMPERATURE,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        usage_hook=None,
     ) -> None:
         super().__init__(
             base_url=base_url,
@@ -27,4 +28,5 @@ class SarvamProvider(OpenAICompatibleProvider):
             temperature=temperature,
             max_tokens=max_tokens,
             extra_headers={"api-subscription-key": api_key},
+            usage_hook=usage_hook,
         )

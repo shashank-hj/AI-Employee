@@ -1,115 +1,5 @@
-import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-
-from tool_registry.app import create_app
-from tool_registry.schemas.tools import (
-    RetryPolicy,
-    ToolCategory,
-    ToolCreate,
-    ToolResponse,
-    ToolUpdate,
-)
-from tool_registry.services.tool_service import ToolService
-from shared.utils.exceptions import ConflictException, NotFoundException
-
-
-def _make_response(**overrides) -> ToolResponse:
-    now = datetime.now(timezone.utc)
-    defaults = {
-        "id": str(uuid.uuid4()),
-        "name": "test-tool",
-        "description": "A test tool",
-        "version": "1.0.0",
-        "category": ToolCategory.UTILITY,
-        "permissions": ["read", "write"],
-        "input_schema": {"param1": {"type": "string"}},
-        "output_schema": {"result": {"type": "string"}},
-        "timeout_seconds": 30.0,
-        "retry_policy": RetryPolicy(),
-        "tags": ["test", "mock"],
-        "is_active": True,
-        "created_at": now,
-        "updated_at": now,
-    }
-    defaults.update(overrides)
-    return ToolResponse(**defaults)
-
-
-class MockToolService:
-    def __init__(self):
-        self._tools: dict[str, ToolResponse] = {}
-        self.register_tool = AsyncMock(wraps=self._register_tool)
-        self.get_tool = AsyncMock(wraps=self._get_tool)
-        self.list_tools = AsyncMock(wraps=self._list_tools)
-        self.update_tool = AsyncMock(wraps=self._update_tool)
-        self.delete_tool = AsyncMock(wraps=self._delete_tool)
-
-    async def _register_tool(self, data: ToolCreate):
-        existing = any(t.name == data.name for t in self._tools.values())
-        if existing:
-            raise ConflictException(f"Tool with name '{data.name}' already exists")
-        tool = _make_response(name=data.name, description=data.description, version=data.version,
-                              category=data.category, permissions=data.permissions,
-                              tags=data.tags, timeout_seconds=data.timeout_seconds)
-        self._tools[tool.id] = tool
-        return tool
-
-    async def _get_tool(self, tool_id: str):
-        if tool_id not in self._tools:
-            raise NotFoundException(f"Tool with id '{tool_id}' not found")
-        return self._tools[tool_id]
-
-    async def _list_tools(self, params):
-        tools = list(self._tools.values())
-        total = len(tools)
-        start = (params.page - 1) * params.page_size
-        end = start + params.page_size
-        return tools[start:end], total
-
-    async def _update_tool(self, tool_id: str, data: ToolUpdate):
-        if tool_id not in self._tools:
-            raise NotFoundException(f"Tool with id '{tool_id}' not found")
-        tool = self._tools[tool_id]
-        update_dict = data.model_dump(exclude_unset=True)
-        for k, v in update_dict.items():
-            setattr(tool, k, v)
-        self._tools[tool_id] = tool
-        return tool
-
-    async def _delete_tool(self, tool_id: str):
-        if tool_id not in self._tools:
-            raise NotFoundException(f"Tool with id '{tool_id}' not found")
-        del self._tools[tool_id]
-
-
-@pytest.fixture
-def mock_service():
-    return MockToolService()
-
-
-@pytest.fixture
-def app_mock(mock_service):
-    app = create_app()
-
-    async def override_get_tool_service():
-        return mock_service
-
-    from tool_registry.container import get_tool_service
-    app.dependency_overrides[get_tool_service] = override_get_tool_service
-
-    return app
-
-
-@pytest.fixture
-async def client_mock(app_mock):
-    transport = ASGITransport(app=app_mock)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
 
 TOOL_PAYLOAD = {
     "name": "test-tool",
@@ -235,7 +125,9 @@ class TestListTools:
 
     @pytest.mark.asyncio
     async def test_list_search(self, client_mock):
-        await client_mock.post("/api/tools", json={"name": "searchable-tool", "category": "utility"})
+        await client_mock.post(
+            "/api/tools", json={"name": "searchable-tool", "category": "utility"}
+        )
         response = await client_mock.get("/api/tools?search=searchable")
         assert response.status_code == 200
 

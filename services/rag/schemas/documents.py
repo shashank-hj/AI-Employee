@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 class DocumentUpload(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
     content: str = Field(..., min_length=1)
-    source: Optional[str] = None
+    source: str | None = None
     content_type: str = "text/plain"
-    metadata: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class ChunkInfo(BaseModel):
@@ -20,11 +20,11 @@ class ChunkInfo(BaseModel):
 class DocumentResponse(BaseModel):
     id: str
     title: str
-    source: Optional[str] = None
+    source: str | None = None
     content_type: str
     status: str
     chunks_count: int
-    metadata: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -35,7 +35,14 @@ class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1)
     top_k: int = Field(default=5, ge=1, le=100)
     min_score: float = Field(default=0.0, ge=0.0, le=1.0)
-    filters: Optional[dict[str, Any]] = None
+    filters: dict[str, Any] | None = None
+    language: str | None = Field(
+        default=None,
+        description=(
+            "Query language hint (e.g. 'hi-IN'). When set and non-English, "
+            "the query is translated to the index language before retrieval."
+        ),
+    )
 
 
 class SearchResult(BaseModel):
@@ -45,10 +52,31 @@ class SearchResult(BaseModel):
     chunk_index: int
     content: str
     score: float
-    metadata: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
+
+
+class Citation(BaseModel):
+    document_id: str
+    document_title: str
+    chunk_index: int
+    content: str = Field(default="", description="Snippet of the cited chunk")
+    score: float
 
 
 class QueryResponse(BaseModel):
     query: str
     results: list[SearchResult]
     total_found: int
+    citations: list[Citation] = Field(
+        default_factory=list,
+        description="Attributable sources for the answer",
+    )
+    refined_query: str | None = Field(
+        default=None,
+        description="LLM-refined search query when agentic refinement ran",
+    )
+    translated_query: str | None = Field(
+        default=None,
+        description="Query translated to the index language before retrieval",
+    )
+    language: str | None = None

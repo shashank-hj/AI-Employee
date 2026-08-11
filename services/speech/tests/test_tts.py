@@ -9,6 +9,7 @@ import pytest
 
 def _mock_httpx_post(return_value):
     mock_response = MagicMock()
+    mock_response.status_code = 200
     mock_response.json.return_value = return_value
     mock_response.raise_for_status = MagicMock()
 

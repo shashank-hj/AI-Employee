@@ -1,3 +1,5 @@
+import os
+import structlog
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -6,13 +8,30 @@ from fastapi.responses import JSONResponse
 
 from speech.config import settings
 from speech.routers import health, stt, tts, translation, language_detection, transliteration
+from shared.models.base import Base
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
+
+logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+
+    if settings.USAGE_PRICING:
+        os.environ["USAGE_PRICING"] = settings.USAGE_PRICING
+
+    import shared.usage.model  # noqa: F401 — register usage_events on Base
+
+    try:
+        from speech.database.session import engine
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as exc:
+        logger.warning("database_init_skipped", error=str(exc))
+
     yield
 
 

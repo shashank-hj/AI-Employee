@@ -5,12 +5,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from workflow.config import settings
-from workflow.database.session import engine
-from workflow.routers import health, workflows
 from shared.models.base import Base
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
+from workflow.database.session import async_session, engine
+from workflow.routers import health, workflows
+from workflow.services.workflow_service import reconcile_stale_running
 
 logger = structlog.get_logger(__name__)
 
@@ -18,13 +18,19 @@ logger = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
-    import workflow.models.workflow  # noqa: F811 — register models on Base
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("database_initialized")
     except Exception as e:
         logger.warning("database_init_skipped", error=str(e))
+    try:
+        async with async_session() as session:
+            recovered = await reconcile_stale_running(session)
+            if recovered:
+                logger.info("stale_running_reconciled", count=recovered)
+    except Exception as e:
+        logger.warning("running_reconcile_skipped", error=str(e))
     yield
 
 

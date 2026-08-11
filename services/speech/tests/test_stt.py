@@ -33,6 +33,7 @@ async def test_tts_no_api_key_returns_empty_audio(client, monkeypatch):
 
 def _mock_httpx_post(return_value):
     mock_response = MagicMock()
+    mock_response.status_code = 200
     mock_response.json.return_value = return_value
     mock_response.raise_for_status = MagicMock()
 
@@ -69,6 +70,68 @@ class TestSTTProvider:
             result = await provider.transcribe(b"fake audio")
             assert result["transcript"] == "Hello world"
             assert result["language_code"] == "en-IN"
+
+
+class TestWordTimestamps:
+    def test_estimate_word_timestamps_proportional(self):
+        from speech.providers.word_timestamps import estimate_word_timestamps
+
+        timestamps = estimate_word_timestamps("Hello world", 2.0)
+        assert [ts.word for ts in timestamps] == ["Hello", "world"]
+        assert timestamps[0].start_sec == 0.0
+        assert timestamps[0].end_sec == pytest.approx(1.0, abs=0.001)
+        assert timestamps[1].start_sec == pytest.approx(1.0, abs=0.001)
+        assert timestamps[1].end_sec == pytest.approx(2.0, abs=0.001)
+        assert all(ts.confidence is None for ts in timestamps)
+
+    def test_estimate_word_timestamps_empty_or_zero_duration(self):
+        from speech.providers.word_timestamps import estimate_word_timestamps
+
+        assert estimate_word_timestamps("", 5.0) == []
+        assert estimate_word_timestamps("Hello", 0.0) == []
+
+    @pytest.mark.asyncio
+    async def test_stt_endpoint_returns_word_timestamps(self, client, monkeypatch):
+        from speech.container import get_stt_provider
+
+        monkeypatch.setattr("speech.config.settings.SARVAM_API_KEY", "test-key")
+        get_stt_provider.cache_clear()
+
+        mock_client, _ = _mock_httpx_post({"transcript": "Hello world", "language_code": "en-IN"})
+
+        monkeypatch.setattr("speech.routers.stt.get_usage_recorder", lambda: AsyncMock())
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            response = await client.post(
+                "/api/speech-to-text",
+                files={"file": ("test.webm", b"fake audio", "audio/webm")},
+                data={"with_word_timestamps": "true"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert [ts["word"] for ts in data["word_timestamps"]] == ["Hello", "world"]
+        assert data["word_timestamps"][0]["start_sec"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_stt_endpoint_omits_timestamps_by_default(self, client, monkeypatch):
+        from speech.container import get_stt_provider
+
+        monkeypatch.setattr("speech.config.settings.SARVAM_API_KEY", "test-key")
+        get_stt_provider.cache_clear()
+
+        mock_client, _ = _mock_httpx_post({"transcript": "Hello world", "language_code": "en-IN"})
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            response = await client.post(
+                "/api/speech-to-text",
+                files={"file": ("test.webm", b"fake audio", "audio/webm")},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["word_timestamps"] is None
 
 
 class TestTTSProvider:

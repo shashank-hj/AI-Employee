@@ -190,7 +190,7 @@ class LLMPlanner(BasePlanner):
         user_input = state["user_input"]
         start = time.perf_counter()
 
-        intent = await self._classify(user_input)
+        intent = await self._classify(user_input, _build_context_string(state))
         duration_ms = (time.perf_counter() - start) * 1000
 
         logger.info(
@@ -234,11 +234,27 @@ class LLMPlanner(BasePlanner):
         if intent.suggested_tools:
             valid = [t for t in intent.suggested_tools if t in PARAM_EXTRACTORS]
             if valid:
-                return valid
+                return self._apply_allowlist(valid, intent.intent)
 
-        return INTENT_TOOL_MAP.get(intent.intent, ["search_documents"])
+        return self._apply_allowlist(
+            INTENT_TOOL_MAP.get(intent.intent, ["search_documents"]),
+            intent.intent,
+        )
 
-    async def _classify(self, user_input: str) -> IntentClassification:
+    def _apply_allowlist(self, tool_names: list[str], intent_name: str) -> list[str]:
+        """C2: restrict planned tools to the resolved agent's allowlist."""
+        from orchestrator.agents.roster import agent_roster
+
+        profile = agent_roster.get(intent_name) or agent_roster.get(agent_roster.agent_fallback)
+        allowed = profile.allowed_tools if profile else None
+        if allowed is None:
+            return tool_names
+        filtered = [t for t in tool_names if t in allowed]
+        if filtered:
+            return filtered
+        return [t for t in tool_names if t in PARAM_EXTRACTORS]
+
+    async def _classify(self, user_input: str, context: str | None = None) -> IntentClassification:
         pre = _pre_classify(user_input)
         if pre is not None:
             logger.info(
@@ -250,7 +266,7 @@ class LLMPlanner(BasePlanner):
             return pre
 
         try:
-            return await self._llm.classify_intent(user_input)
+            return await self._llm.classify_intent(user_input, context=context)
         except Exception as exc:
             logger.error("intent_classification_error", error=str(exc))
             return IntentClassification(
@@ -258,3 +274,30 @@ class LLMPlanner(BasePlanner):
                 confidence=0.0,
                 reason=f"Classification error, falling back to '{self._fallback_intent}': {str(exc)}",
             )
+
+
+def _build_context_string(state: AgentState) -> str | None:
+    """Serialize memory/document context for context-aware intent classification."""
+    lines: list[str] = []
+
+    memory_context = state.get("memory_context", [])
+    for msg in memory_context:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if content:
+            lines.append(f"{role}: {content}")
+
+    document_context = state.get("document_context", [])
+    for doc in document_context[:3]:
+        title = doc.get("title", doc.get("filename", ""))
+        snippet = doc.get("snippet") or doc.get("content", "")[:200]
+        if title or snippet:
+            lines.append(f"document: {title}: {snippet}")
+
+    preferences = state.get("user_preferences", {})
+    for key, value in list(preferences.items())[:5]:
+        lines.append(f"preference: {key}={value}")
+
+    if not lines:
+        return None
+    return "\n".join(lines)[:3000]

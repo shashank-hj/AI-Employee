@@ -1,25 +1,26 @@
 """M5 Memory Writer — background worker that extracts facts from completed conversations\n"
 "and writes them to User Profile (M2) and Episodic Memory (M3).\n"
 "\n"
-"Runs as a fire-and-forget asyncio task alongside the orchestrator. Uses a Redis\n"
-"list as a simple job queue for durability and retry resilience.\n"""
+"Runs as a fire-and-forget asyncio task alongside the orchestrator. Uses the shared\n"
+"Redis task queue for durability and retry resilience.\n"""
 
-import asyncio
-import json
 from typing import Any
 
 import redis.asyncio as aioredis
 import structlog
 
-from orchestrator.config import settings
 from orchestrator.services.fact_extractor import FactExtractor
 from orchestrator.services.memory_client import MemoryClient
+from shared.queue import RedisTaskQueue, RedisTaskWorker
+from shared.usage.context import reset_usage_context, set_usage_context
 
 logger = structlog.get_logger(__name__)
 
 DEFAULT_QUEUE_KEY = "memory_writer:queue"
 DEFAULT_POLL_TIMEOUT = 5  # seconds for BRPOP
 DEFAULT_RETRY_DELAY = 2.0  # seconds between failed processing retries
+
+TASK_NAME = "memory_writer"
 
 
 class MemoryWriterWorker:
@@ -40,8 +41,9 @@ class MemoryWriterWorker:
         self._queue_key = queue_key
         self._retry_delay = retry_delay
         self._enabled = enabled
-        self._task: asyncio.Task | None = None
-        self._stop_event = asyncio.Event()
+        self._queue = RedisTaskQueue(redis_client, queue_key=queue_key)
+        self._worker = RedisTaskWorker(self._queue, retry_delay=retry_delay)
+        self._worker.register(TASK_NAME, self._process_job)
 
     # ── Lifecycle ──
 
@@ -49,26 +51,11 @@ class MemoryWriterWorker:
         if not self._enabled:
             logger.info("memory_writer_disabled")
             return
-        if self._task is not None and not self._task.done():
-            logger.warning("memory_writer_already_running")
-            return
-        self._stop_event.clear()
-        self._task = asyncio.create_task(self._run_loop())
-        logger.info("memory_writer_started", queue_key=self._queue_key)
+        self._worker.start()
 
     async def stop(self, timeout: float = 5.0) -> None:
-        if self._task is None or self._task.done():
-            return
-        self._stop_event.set()
-        try:
-            await asyncio.wait_for(self._task, timeout=timeout)
-        except asyncio.TimeoutError:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
-        logger.info("memory_writer_stopped")
+        if self._enabled:
+            await self._worker.stop(timeout=timeout)
 
     async def enqueue(self, job: dict[str, Any]) -> bool:
         """Enqueue a conversation job for background processing.\n\n"
@@ -77,42 +64,17 @@ class MemoryWriterWorker:
         if not self._enabled:
             logger.debug("memory_writer_enqueue_skipped_disabled")
             return False
-        try:
-            payload = json.dumps(job, default=str)
-            await self._redis.rpush(self._queue_key, payload)
+        ok = await self._queue.enqueue(TASK_NAME, job)
+        if ok:
             logger.info(
                 "memory_writer_enqueued",
                 request_id=job.get("request_id"),
                 user_id=job.get("user_id"),
-                queue_length=await self._redis.llen(self._queue_key),
+                queue_length=await self._queue.length(),
             )
-            return True
-        except Exception as exc:
-            logger.error("memory_writer_enqueue_failed", error=str(exc), request_id=job.get("request_id"))
-            return False
-
-    # ── Core loop ──
-
-    async def _run_loop(self) -> None:
-        while not self._stop_event.is_set():
-            try:
-                payload = await self._redis.lpop(self._queue_key)
-                if payload is None:
-                    await asyncio.sleep(self._retry_delay)
-                    continue
-
-                job = json.loads(payload)
-                await self._process_job(job)
-            except asyncio.CancelledError:
-                logger.info("memory_writer_loop_cancelled")
-                break
-            except json.JSONDecodeError as exc:
-                logger.error("memory_writer_bad_payload", error=str(exc), payload=payload[:200])
-            except asyncio.TimeoutError:
-                await asyncio.sleep(self._retry_delay)
-            except Exception as exc:
-                logger.error("memory_writer_loop_error", error=str(exc))
-                await asyncio.sleep(self._retry_delay)
+        else:
+            logger.error("memory_writer_enqueue_failed", request_id=job.get("request_id"))
+        return ok
 
     async def _process_job(self, job: dict[str, Any]) -> None:
         request_id = job.get("request_id", "unknown")
@@ -131,9 +93,18 @@ class MemoryWriterWorker:
         )
 
         # 1. Extract facts via LLM
-        facts = await self._extractor.extract(job)
+        token = set_usage_context(
+            operation="fact_extraction",
+            request_id=request_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        try:
+            facts = await self._extractor.extract(job)
+        finally:
+            reset_usage_context(token)
 
-        if not facts.display_name and not facts.preferences and not facts.facts and not facts.summary:
+        if not (facts.display_name or facts.preferences or facts.facts or facts.summary):
             logger.info("memory_writer_no_facts_extracted", request_id=request_id, user_id=user_id)
             return
 

@@ -1,9 +1,16 @@
 from fastapi import APIRouter, Depends
-
 from tool_registry.container import get_tool_service
-from tool_registry.schemas.tools import ToolCreate, ToolListParams, ToolResponse, ToolUpdate
+from tool_registry.schemas.tools import (
+    ToolCreate,
+    ToolInvokeRequest,
+    ToolInvokeResponse,
+    ToolListParams,
+    ToolResponse,
+    ToolUpdate,
+)
 from tool_registry.services.tool_service import ToolService
-from shared.utils.response import paginated_response, success_response
+
+from shared.utils.response import paginated_response
 
 router = APIRouter(prefix="/api")
 
@@ -53,3 +60,23 @@ async def delete_tool(
     service: ToolService = Depends(get_tool_service),
 ):
     await service.delete_tool(tool_id)
+
+
+@router.post("/tools/{tool_id}/invoke", response_model=ToolInvokeResponse)
+async def invoke_tool(
+    tool_id: str,
+    request: ToolInvokeRequest,
+    service: ToolService = Depends(get_tool_service),
+):
+    """Execute a registered tool with validated parameters."""
+    return await service.invoke_tool(tool_id, request)
+
+
+@router.post("/tools/{tool_id}/execute", response_model=ToolInvokeResponse)
+async def execute_tool(
+    tool_id: str,
+    request: ToolInvokeRequest,
+    service: ToolService = Depends(get_tool_service),
+):
+    """Alias for ``/invoke``: execute a registered tool."""
+    return await service.invoke_tool(tool_id, request)

@@ -1,6 +1,7 @@
 import uvicorn
-from gateway.config import settings
+
 from gateway.app import create_app
+from gateway.config import settings
 
 app = create_app()
 

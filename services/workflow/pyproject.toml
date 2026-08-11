@@ -17,6 +17,9 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi",
     "opentelemetry-exporter-otlp",
     "redis",
+    "langgraph>=1.2.9",
+    "langgraph-checkpoint-postgres>=3.1.1",
+    "psycopg-binary>=3.3.4",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +37,7 @@ build-backend = "setuptools.build_meta"
 packages = [
     "workflow",
     "workflow.database",
+    "workflow.graph",
     "workflow.models",
     "workflow.repositories",
     "workflow.routers",

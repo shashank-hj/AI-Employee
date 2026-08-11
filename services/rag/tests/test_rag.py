@@ -211,7 +211,7 @@ class TestEmbeddingProvider:
     def test_dimension(self):
         from rag.services.pipeline import MockEmbeddingProvider
         provider = MockEmbeddingProvider()
-        assert provider.dimension == 1536
+        assert provider.dimension == 768
 
     def test_embed_single(self):
         from rag.services.pipeline import MockEmbeddingProvider
@@ -222,7 +222,7 @@ class TestEmbeddingProvider:
             return vectors
         vectors = asyncio.new_event_loop().run_until_complete(run())
         assert len(vectors) == 1
-        assert len(vectors[0]) == 1536
+        assert len(vectors[0]) == 768
 
     def test_embed_deterministic(self):
         from rag.services.pipeline import MockEmbeddingProvider
@@ -246,7 +246,7 @@ class TestEmbeddingProvider:
             return vectors
         vectors = asyncio.new_event_loop().run_until_complete(run())
         assert len(vectors) == 3
-        assert all(len(v) == 1536 for v in vectors)
+        assert all(len(v) == 768 for v in vectors)
 
 
 class TestDocumentIngester:

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_employee"
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # ── Usage / Cost tracking ──
+    USAGE_ENABLED: bool = True
+    USAGE_PRICING: str = "{}"
+
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 
 

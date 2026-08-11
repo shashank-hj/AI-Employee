@@ -1,37 +1,39 @@
+import os
 from functools import lru_cache
 
+import redis.asyncio as aioredis
 import structlog
 
-from shared.llm import LLMProvider, SarvamProvider, OllamaProvider
-
-from orchestrator.tools.registry import ToolRegistry
-from orchestrator.tools.mock_tools import register_mock_tools
-from orchestrator.tools.rag_client import RAGClient, MockRAGClient, HttpRAGClient
-from orchestrator.planner.mock_planner import MockPlanner
-from orchestrator.planner.llm_planner import LLMPlanner
-from orchestrator.planner.base import BasePlanner
-from orchestrator.context.builder import MockContextBuilder, MemoryContextBuilder, ContextBuilder
-import redis.asyncio as aioredis
-
-from orchestrator.services.agent_service import AgentService
-from orchestrator.services.mock_services import MockOrderService, MockCalendarService, MockPricingService
-from orchestrator.services.business_services import (
-    OrderService,
-    CalendarService,
-    PricingService,
-    EmailService,
-    WeatherService,
-    EscalationService,
-)
-from orchestrator.services.memory_client import MemoryClient
-from orchestrator.services.fact_extractor import FactExtractor
-from orchestrator.workers.memory_writer import MemoryWriterWorker
 from orchestrator.config import settings
+from orchestrator.context.builder import ContextBuilder, MemoryContextBuilder
+from orchestrator.planner.base import BasePlanner
+from orchestrator.planner.llm_planner import LLMPlanner
+from orchestrator.planner.mock_planner import MockPlanner
+from orchestrator.services.agent_service import AgentService
+from orchestrator.services.approval_service import ApprovalService
+from orchestrator.services.business_services import (
+    CalendarService,
+    EmailService,
+    EscalationService,
+    OrderService,
+    PricingService,
+    WeatherService,
+)
+from orchestrator.services.fact_extractor import FactExtractor
+from orchestrator.services.memory_client import MemoryClient
+from orchestrator.services.speech_client import SpeechClient
+from orchestrator.services.voice_service import VoiceService
+from orchestrator.tools.mock_tools import register_mock_tools
+from orchestrator.tools.rag_client import HttpRAGClient, MockRAGClient, RAGClient
+from orchestrator.tools.registry import ToolRegistry
+from orchestrator.workers.memory_writer import MemoryWriterWorker
+from shared.llm import LLMProvider, OllamaProvider, SarvamProvider
+from shared.usage import UsageRecorder
 
 logger = structlog.get_logger(__name__)
 
 
-@lru_cache()
+@lru_cache
 def _build_rag_client() -> RAGClient:
     return HttpRAGClient(
         base_url=settings.RAG_URL,
@@ -42,7 +44,7 @@ def _build_rag_client() -> RAGClient:
     )
 
 
-@lru_cache()
+@lru_cache
 def get_tool_registry() -> ToolRegistry:
     registry = ToolRegistry()
     register_mock_tools(
@@ -96,96 +98,125 @@ def _resolve_provider() -> LLMProvider | None:
             max_tokens=settings.LLM_MAX_TOKENS,
         )
 
-    logger.warning("llm_provider_not_configured", message="Set LLM_PROVIDER=ollama or LLM_PROVIDER=sarvam; using MockPlanner")
+    logger.warning(
+        "llm_provider_not_configured",
+        message="Set LLM_PROVIDER=ollama or LLM_PROVIDER=sarvam; using MockPlanner",
+    )
     return None
 
 
-@lru_cache()
+def _with_usage_hook(provider: LLMProvider | None) -> LLMProvider | None:
+    """Attach the usage recorder hook so every LLM call is logged to usage_events."""
+    if provider is None:
+        return None
+    provider._usage_hook = get_usage_recorder()  # type: ignore[attr-defined]
+    return provider
+
+
+@lru_cache
 def _build_classify_llm() -> LLMProvider | None:
     provider = _resolve_provider()
     if provider is None:
         return None
     if isinstance(provider, OllamaProvider):
-        return OllamaProvider(
+        return _with_usage_hook(OllamaProvider(
             base_url=settings.OLLAMA_BASE_URL,
             model=settings.OLLAMA_MODEL,
             timeout=settings.OLLAMA_TIMEOUT,
             temperature=settings.LLM_TEMPERATURE,
             max_tokens=settings.LLM_CLASSIFY_MAX_TOKENS,
-        )
-    return SarvamProvider(
+        ))
+    return _with_usage_hook(SarvamProvider(
         api_key=settings.SARVAM_API_KEY,
         base_url=settings.SARVAM_BASE_URL,
         model=settings.SARVAM_MODEL,
         timeout=settings.SARVAM_TIMEOUT,
         temperature=settings.LLM_TEMPERATURE,
         max_tokens=settings.LLM_CLASSIFY_MAX_TOKENS,
-    )
+    ))
 
 
-@lru_cache()
+@lru_cache
 def get_planner() -> BasePlanner:
     llm = _build_classify_llm()
     if llm is not None:
-        model = settings.SARVAM_MODEL if settings.LLM_PROVIDER.lower() in ("sarvam", "") else settings.OLLAMA_MODEL
+        model = (
+            settings.SARVAM_MODEL
+            if settings.LLM_PROVIDER.lower() in ("sarvam", "")
+            else settings.OLLAMA_MODEL
+        )
         logger.info("planner_initialized", provider=type(llm).__name__, model=model)
         return LLMPlanner(llm_provider=llm, fallback_intent=settings.LLM_FALLBACK_INTENT)
     logger.info("planner_initialized", provider="MockPlanner")
     return MockPlanner()
 
 
-@lru_cache()
+@lru_cache
 def get_context_builder() -> ContextBuilder:
     return MemoryContextBuilder(memory_client=get_memory_client())
 
 
-@lru_cache()
+@lru_cache
 def get_order_service():
     return OrderService()
 
 
-@lru_cache()
+@lru_cache
 def get_calendar_service():
     return CalendarService()
 
 
-@lru_cache()
+@lru_cache
 def get_pricing_service():
     return PricingService()
 
 
-@lru_cache()
+@lru_cache
 def get_email_service():
     return EmailService()
 
 
-@lru_cache()
+@lru_cache
 def get_weather_service():
     return WeatherService()
 
 
-@lru_cache()
+@lru_cache
 def get_escalation_service():
     return EscalationService()
 
 
-@lru_cache()
+@lru_cache
 def _build_generate_llm() -> LLMProvider | None:
     provider = _resolve_provider()
     if provider is None:
         return None
     if isinstance(provider, OllamaProvider):
-        return OllamaProvider(
+        return _with_usage_hook(OllamaProvider(
             base_url=settings.OLLAMA_BASE_URL,
             model=settings.OLLAMA_MODEL,
             timeout=settings.OLLAMA_TIMEOUT,
             temperature=settings.LLM_TEMPERATURE,
             max_tokens=settings.LLM_MAX_TOKENS,
-        )
-    return provider
+        ))
+    return _with_usage_hook(provider)
 
 
-@lru_cache()
+@lru_cache
+def get_usage_recorder() -> UsageRecorder:
+    """Recorder used to persist LLM usage rows into the shared usage_events table."""
+    if settings.USAGE_PRICING:
+        os.environ["USAGE_PRICING"] = settings.USAGE_PRICING
+    from orchestrator.database.session import async_session
+
+    return UsageRecorder(
+        session_factory=async_session,
+        service="orchestrator",
+        enabled=settings.USAGE_ENABLED,
+    )
+
+
+@lru_cache
 def get_redis_client() -> aioredis.Redis:
     return aioredis.from_url(
         settings.REDIS_URL,
@@ -197,12 +228,26 @@ def get_redis_client() -> aioredis.Redis:
     )
 
 
-@lru_cache()
+@lru_cache
 def get_memory_client() -> MemoryClient:
     return MemoryClient(base_url=settings.MEMORY_URL, timeout=5.0)
 
 
-@lru_cache()
+@lru_cache
+def get_speech_client() -> SpeechClient:
+    return SpeechClient(base_url=settings.SPEECH_URL, timeout=30.0)
+
+
+@lru_cache
+def get_voice_service() -> VoiceService:
+    return VoiceService(
+        agent_service=get_agent_service(),
+        speech_client=get_speech_client(),
+        memory_client=get_memory_client(),
+    )
+
+
+@lru_cache
 def get_fact_extractor() -> FactExtractor:
     return FactExtractor(llm_provider=_build_generate_llm())
 
@@ -217,7 +262,12 @@ def get_memory_writer_worker() -> MemoryWriterWorker:
     )
 
 
-@lru_cache()
+@lru_cache
+def get_approval_service() -> ApprovalService:
+    return ApprovalService()
+
+
+@lru_cache
 def get_agent_service() -> AgentService:
     return AgentService(
         tool_registry=get_tool_registry(),
@@ -226,4 +276,5 @@ def get_agent_service() -> AgentService:
         llm_provider=_build_generate_llm(),
         memory_writer=get_memory_writer_worker(),
         memory_client=get_memory_client(),
+        approval_service=get_approval_service(),
     )

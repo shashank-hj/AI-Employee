@@ -24,7 +24,17 @@ class LLMResponse:
 
 class LLMProvider(ABC):
     @abstractmethod
-    async def classify_intent(self, user_input: str) -> IntentClassification:
+    async def classify_intent(
+        self,
+        user_input: str,
+        context: str | None = None,
+    ) -> IntentClassification:
+        """Classify the user input into an intent.
+
+        ``context`` optionally provides conversation history / memory context that
+        can disambiguate otherwise ambiguous requests (e.g. pronouns referring to
+        a prior order or topic).
+        """
         ...
 
     @abstractmethod

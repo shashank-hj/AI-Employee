@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +14,7 @@ class WorkflowRepository:
         await self._session.flush()
         return wf
 
-    async def get_by_id(self, workflow_id: str) -> Optional[WorkflowModel]:
+    async def get_by_id(self, workflow_id: str) -> WorkflowModel | None:
         stmt = select(WorkflowModel).where(WorkflowModel.id == workflow_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
@@ -39,3 +37,15 @@ class WorkflowRepository:
         await self._session.merge(wf)
         await self._session.flush()
         return wf
+
+    async def delete(self, workflow_id: str) -> bool:
+        wf = await self.get_by_id(workflow_id)
+        if wf is None:
+            return False
+        await self._session.delete(wf)
+        await self._session.flush()
+        return True
+
+    async def commit(self) -> None:
+        """Persist pending changes; the response then reflects durable state."""
+        await self._session.commit()

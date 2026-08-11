@@ -15,10 +15,13 @@ dependencies = [
     "ai-employee-shared-models",
     "ai-employee-shared-llm",
     "ai-employee-shared-utils",
+    "ai-employee-shared-usage",
     "opentelemetry-instrumentation-fastapi",
     "opentelemetry-exporter-otlp",
     "redis",
     "langgraph>=0.2.0",
+    "langgraph-checkpoint-postgres>=3.1.1",
+    "psycopg-binary>=3.3.4",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +38,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = [
     "orchestrator",
+    "orchestrator.agents",
     "orchestrator.tools",
     "orchestrator.graph",
     "orchestrator.models",

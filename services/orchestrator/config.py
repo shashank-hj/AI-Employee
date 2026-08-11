@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     TOOL_REGISTRY_URL: str = "http://tool-registry:8002"
     MEMORY_URL: str = "http://memory:8003"
     RAG_URL: str = "http://localhost:8004"
+    SPEECH_URL: str = "http://speech:8006"
     OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://otel-collector:4317"
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "orchestrator"
@@ -41,6 +42,14 @@ class Settings(BaseSettings):
     MEMORY_WRITER_ENABLED: bool = True
     MEMORY_WRITER_QUEUE_KEY: str = "memory_writer:queue"
     MEMORY_WRITER_POLL_TIMEOUT: int = 5
+
+    # ── Human-in-the-loop approval (C4) ──
+    HITL_ENABLED: bool = True
+    HITL_APPROVAL_TOOLS: str = '["send_email"]'
+
+    # ── Usage / Cost tracking ──
+    USAGE_ENABLED: bool = True
+    USAGE_PRICING: str = "{}"
 
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 

@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -20,10 +21,19 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "gateway"
 
+    # ── Edge guardrails (O4) ──
+    GUARDRAILS_ENABLED: bool = True
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_LIMIT: int = 30
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # ── Channel event recording (dashboard) ──
+    CHANNEL_EVENTS_ENABLED: bool = True
+
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()
 

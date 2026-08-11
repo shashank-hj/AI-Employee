@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
@@ -14,8 +15,10 @@ from tenacity import (
 )
 
 from shared.llm.base import IntentClassification, LLMProvider, LLMResponse
-from shared.llm.prompts import INTENT_SYSTEM_PROMPT
+from shared.llm.prompts import INTENT_SYSTEM_PROMPT, INTENT_CONTEXT_BLOCK
 from shared.llm.schemas import IntentClassificationResult
+from shared.usage.pricing import estimate_tokens
+from shared.usage.records import UsageRecord
 
 logger = structlog.get_logger(__name__)
 
@@ -43,12 +46,14 @@ class OpenAICompatibleProvider(LLMProvider):
         temperature: float = DEFAULT_TEMPERATURE,
         max_tokens: int = DEFAULT_MAX_TOKENS,
         extra_headers: dict[str, str] | None = None,
+        usage_hook: Callable[[UsageRecord], Awaitable[None]] | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
         self._temperature = temperature
         self._max_tokens = max_tokens
+        self._usage_hook = usage_hook
 
         headers: dict[str, str] = {"Content-Type": "application/json"}
         if api_key:
@@ -62,14 +67,29 @@ class OpenAICompatibleProvider(LLMProvider):
             timeout=httpx.Timeout(timeout),
         )
 
-    async def classify_intent(self, user_input: str) -> IntentClassification:
+    async def classify_intent(
+        self,
+        user_input: str,
+        context: str | None = None,
+    ) -> IntentClassification:
         start = time.perf_counter()
-        logger.info("intent_classification_started", input_length=len(user_input), model=self._model)
+        logger.info(
+            "intent_classification_started",
+            input_length=len(user_input),
+            model=self._model,
+            has_context=bool(context),
+        )
 
         try:
+            user_message = (
+                INTENT_CONTEXT_BLOCK.format(context=context, user_input=user_input)
+                if context
+                else user_input
+            )
             response = await self._chat_completion(
                 system_prompt=INTENT_SYSTEM_PROMPT,
-                user_message=user_input,
+                user_message=user_message,
+                operation="classify_intent",
             )
             parsed = self._parse_intent_response(response.content)
 
@@ -105,6 +125,7 @@ class OpenAICompatibleProvider(LLMProvider):
             return await self._chat_completion(
                 system_prompt=system_prompt,
                 user_message=user_message,
+                operation="generate",
             )
         except Exception as exc:
             duration_ms = (time.perf_counter() - start) * 1000
@@ -150,6 +171,7 @@ class OpenAICompatibleProvider(LLMProvider):
         self,
         system_prompt: str,
         user_message: str,
+        operation: str = "generate",
     ) -> LLMResponse:
         start = time.perf_counter()
 
@@ -210,6 +232,18 @@ class OpenAICompatibleProvider(LLMProvider):
             duration_ms=round(duration_ms, 2),
         )
 
+        await self._emit_usage(
+            operation=operation,
+            model=data.get("model", self._model),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            duration_ms=duration_ms,
+            system_prompt=system_prompt,
+            user_message=user_message,
+            content=content,
+            raw_usage=usage or None,
+        )
+
         return LLMResponse(
             content=content,
             model=data.get("model", self._model),
@@ -217,6 +251,40 @@ class OpenAICompatibleProvider(LLMProvider):
             output_tokens=output_tokens,
             duration_ms=round(duration_ms, 2),
         )
+
+    async def _emit_usage(
+        self,
+        *,
+        operation: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        duration_ms: float,
+        system_prompt: str,
+        user_message: str,
+        content: str,
+        raw_usage: dict | None,
+    ) -> None:
+        if self._usage_hook is None:
+            return
+
+        estimated_input = input_tokens or estimate_tokens(system_prompt + user_message)
+        estimated_output = output_tokens or estimate_tokens(content)
+
+        record = UsageRecord(
+            category="llm",
+            operation=operation,
+            model=model,
+            unit="tokens",
+            input_units=estimated_input,
+            output_units=estimated_output,
+            duration_ms=round(duration_ms, 2),
+            metadata={"raw_usage": raw_usage},
+        )
+        try:
+            await self._usage_hook(record)
+        except Exception as exc:
+            logger.debug("llm_usage_hook_failed", error=str(exc))
 
     @staticmethod
     def _parse_intent_response(content: str) -> IntentClassification:

@@ -53,6 +53,7 @@ ai-employee-shared-events = { workspace = true }
 ai-employee-shared-models = { workspace = true }
 ai-employee-shared-llm = { workspace = true }
 ai-employee-shared-utils = { workspace = true }
+ai-employee-shared-usage = { workspace = true }
 
 [tool.ruff]
 target-version = "py312"
@@ -60,6 +61,19 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Query",
+    "fastapi.Body",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Security",
+]
 
 [tool.mypy]
 python_version = "3.12"

@@ -4,6 +4,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from workflow.database.session import get_db
+from workflow.graph.checkpointer import get_checkpoint_engine
 from workflow.repositories.workflow_repo import WorkflowRepository
 from workflow.services.workflow_service import WorkflowService
 
@@ -15,4 +16,4 @@ def get_repository(db: AsyncSession = Depends(get_db)) -> WorkflowRepository:
 
 async def get_workflow_service(db: AsyncSession = Depends(get_db)) -> WorkflowService:
     repo = WorkflowRepository(db)
-    return WorkflowService(repo)
+    return WorkflowService(repo, checkpointer=get_checkpoint_engine())

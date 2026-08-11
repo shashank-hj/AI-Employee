@@ -9,10 +9,13 @@ dependencies = [
     "structlog",
     "pydantic-settings",
     "python-multipart",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
     "ai-employee-shared-auth",
     "ai-employee-shared-events",
     "ai-employee-shared-models",
     "ai-employee-shared-utils",
+    "ai-employee-shared-usage",
 ]
 
 [project.optional-dependencies]
@@ -27,5 +30,5 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["speech", "speech.providers", "speech.routers", "speech.schemas"]
+packages = ["speech", "speech.providers", "speech.routers", "speech.schemas", "speech.database"]
 package-dir = {"speech" = "."}

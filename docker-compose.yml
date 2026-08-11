@@ -77,11 +77,14 @@ services:
       - LLM_PROVIDER=${LLM_PROVIDER:-}
       - RAG_URL=http://rag:8004
       - RAG_HEALTH_PATH=/health
+      - SPEECH_URL=http://speech:8006
       - SARVAM_API_KEY=${SARVAM_API_KEY:-}
       - SARVAM_BASE_URL=${SARVAM_BASE_URL:-https://api.sarvam.ai}
       - SARVAM_MODEL=${SARVAM_MODEL:-sarvam-105b}
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
+      - USAGE_ENABLED=${USAGE_ENABLED:-true}
+      - USAGE_PRICING=${USAGE_PRICING:-{}}
     depends_on:
       postgres:
         condition: service_healthy
@@ -160,6 +163,8 @@ services:
       - EMBEDDING_PROVIDER=ollama
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_EMBED_MODEL=nomic-embed-text
+      - USAGE_ENABLED=${USAGE_ENABLED:-true}
+      - USAGE_PRICING=${USAGE_PRICING:-{}}
     depends_on:
       postgres:
         condition: service_healthy
@@ -216,6 +221,8 @@ services:
       - SARVAM_TTS_SPEAKER=${SARVAM_TTS_SPEAKER:-anushka}
       - SARVAM_TTS_LANGUAGE=${SARVAM_TTS_LANGUAGE:-en-IN}
       - SARVAM_TIMEOUT=60.0
+      - USAGE_ENABLED=${USAGE_ENABLED:-true}
+      - USAGE_PRICING=${USAGE_PRICING:-{}}
     depends_on:
       postgres:
         condition: service_healthy

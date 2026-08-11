@@ -174,7 +174,47 @@ class MemoryClient:
             response.raise_for_status()
             return response.json()
         except Exception as exc:
-            logger.warning("memory_client_session_upsert_failed", session_id=session_id, error=str(exc))
+            logger.warning(
+                "memory_client_session_upsert_failed",
+                session_id=session_id,
+                error=str(exc),
+            )
+            return None
+
+    async def set_session_language(
+        self,
+        session_id: str,
+        language_code: str,
+        user_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Persist the per-session spoken language in the memory service."""
+        if not session_id or not language_code or language_code == "unknown":
+            return None
+        return await self.upsert_session(
+            session_id=session_id,
+            user_id=user_id,
+            metadata={"language_code": language_code},
+        )
+
+    async def get_session_language(self, session_id: str) -> str | None:
+        """Return the persisted per-session language, or ``None`` if unknown."""
+        if not session_id:
+            return None
+        try:
+            response = await self._client.get(f"/memory/session/{session_id}")
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            metadata = data.get("metadata") or {}
+            context = data.get("context") or {}
+            return metadata.get("language_code") or context.get("language_code")
+        except Exception as exc:
+            logger.warning(
+                "memory_client_get_session_language_failed",
+                session_id=session_id,
+                error=str(exc),
+            )
             return None
 
     async def get_session(self, session_id: str) -> dict[str, Any] | None:
@@ -185,7 +225,11 @@ class MemoryClient:
             messages = response.json()
             return {"messages": messages} if isinstance(messages, list) else messages
         except Exception as exc:
-            logger.warning("memory_client_get_session_failed", session_id=session_id, error=str(exc))
+            logger.warning(
+                "memory_client_get_session_failed",
+                session_id=session_id,
+                error=str(exc),
+            )
             return None
 
     async def add_message(
@@ -203,7 +247,11 @@ class MemoryClient:
             response.raise_for_status()
             return response.json()
         except Exception as exc:
-            logger.warning("memory_client_add_message_failed", session_id=session_id, error=str(exc))
+            logger.warning(
+                "memory_client_add_message_failed",
+                session_id=session_id,
+                error=str(exc),
+            )
             return None
 
     async def get_profile(self, user_id: str) -> dict[str, Any] | None:

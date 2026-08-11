@@ -3,6 +3,7 @@ import structlog
 
 from speech.config import settings
 from speech.providers.errors import SarvamAPIError, extract_sarve_error
+from speech.providers.translation_utils import apply_glossary, compute_translation_confidence
 
 logger = structlog.get_logger(__name__)
 
@@ -23,12 +24,20 @@ class SarvamTranslationProvider:
         text: str,
         target_language_code: str,
         source_language_code: str = "auto",
+        pipeline_mode: str = "direct",
+        glossary: dict[str, str] | None = None,
+        with_confidence: bool = False,
     ) -> dict[str, str]:
-        payload = {
-            "input": text[:2000],
+        source_text = text[:2000]
+        source_text, glossary_matches = apply_glossary(source_text, glossary)
+
+        payload: dict = {
+            "input": source_text,
             "source_language_code": source_language_code,
             "target_language_code": target_language_code,
         }
+        if pipeline_mode == "pipeline":
+            payload["pipeline"] = True
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(
@@ -49,14 +58,31 @@ class SarvamTranslationProvider:
                 )
             result = response.json()
 
+        translated_text = result.get("translated_text", "")
+        detected_source = result.get("source_language_code", source_language_code)
+
+        confidence = None
+        if with_confidence:
+            confidence = compute_translation_confidence(
+                source_text,
+                translated_text,
+                detected_source,
+                target_language_code,
+                glossary_matches,
+            )
+
         logger.info(
             "translation_success",
-            source=result.get("source_language_code"),
+            source=detected_source,
             target=target_language_code,
+            pipeline_mode=pipeline_mode,
+            glossary_matches=len(glossary_matches),
         )
         return {
-            "translated_text": result.get("translated_text", ""),
-            "source_language_code": result.get("source_language_code", source_language_code),
+            "translated_text": translated_text,
+            "source_language_code": detected_source,
+            "glossary_matches": glossary_matches,
+            "confidence": confidence,
         }
 
     async def translate_speech(

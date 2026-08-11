@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -23,10 +24,25 @@ class Settings(BaseSettings):
     OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
     EMBEDDING_TIMEOUT: float = 30.0
 
+    # ── Agentic query refinement ──
+    RAG_REFINE_ENABLED: bool = False
+    RAG_REFINE_LLM: str = "mock"
+    RAG_REFINE_MODEL: str = "qwen3:8b"
+    RAG_REFINE_TIMEOUT: float = 30.0
+
+    # ── Cross-lingual retrieval ──
+    RAG_TRANSLATE_URL: str = ""
+    RAG_TRANSLATE_API_KEY: str = ""
+    RAG_TRANSLATE_TIMEOUT: float = 10.0
+
+    # ── Usage / Cost tracking ──
+    USAGE_ENABLED: bool = True
+    USAGE_PRICING: str = "{}"
+
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()
 

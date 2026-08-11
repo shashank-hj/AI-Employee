@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, Float, Integer, String, Text
+from sqlalchemy import Boolean, Column, Float, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 
 from shared.models.base import Base, TimestampMixin
@@ -21,3 +21,5 @@ class ToolModel(Base, TimestampMixin):
     retry_policy = Column(JSONB, nullable=False, default=dict)
     tags = Column(ARRAY(String), nullable=False, default=list)
     is_active = Column(Boolean, default=True, index=True)
+    execution_type = Column(String(50), nullable=False, default="native")
+    execution_config = Column(JSONB, nullable=False, default=dict)

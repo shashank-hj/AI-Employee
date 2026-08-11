@@ -16,6 +16,9 @@ def should_continue(state: AgentState) -> str:
     if state.get("error"):
         return "respond"
 
+    if state.get("awaiting_approval"):
+        return "respond"
+
     if index >= len(plan):
         return "respond"
 

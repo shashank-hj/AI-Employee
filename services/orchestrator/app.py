@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 import structlog
@@ -10,7 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from orchestrator.config import settings
 from orchestrator.container import _build_rag_client, _build_generate_llm, get_memory_writer_worker
 from orchestrator.database.session import engine
-from orchestrator.routers import health, agent, human_tasks
+from orchestrator.graph.checkpointer import get_checkpoint_engine
+from orchestrator.routers import health, agent, human_tasks, usage, voice, tools
 from shared.models.base import Base
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
@@ -24,7 +26,11 @@ APP_VERSION = "0.1.0"
 async def lifespan(app: FastAPI):
     setup_logging()
 
+    if settings.USAGE_PRICING:
+        os.environ["USAGE_PRICING"] = settings.USAGE_PRICING
+
     import orchestrator.models.human_task  # noqa: F811 — register models on Base
+    import shared.usage.model  # noqa: F401 — register usage_events on Base
 
     try:
         async with engine.begin() as conn:
@@ -51,7 +57,7 @@ async def lifespan(app: FastAPI):
     memory_writer.start()
 
     yield
-
+    await get_checkpoint_engine().close()
     await memory_writer.stop()
 
 
@@ -138,6 +144,9 @@ def create_app() -> FastAPI:
     app.include_router(health.router, tags=["Health"])
     app.include_router(agent.router, tags=["Agent"])
     app.include_router(human_tasks.router, tags=["Human Tasks"])
+    app.include_router(usage.router, tags=["Usage"])
+    app.include_router(voice.router, tags=["Voice"])
+    app.include_router(tools.router, tags=["Tools"])
 
     @app.get("/dashboard", response_class=HTMLResponse)
     async def dashboard():

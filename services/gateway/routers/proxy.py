@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Request, HTTPException
 import httpx
+from fastapi import APIRouter, HTTPException, Request
+
 from gateway.config import settings
 
 router = APIRouter()

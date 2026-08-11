@@ -15,11 +15,21 @@ class RAGClient(Protocol):
 
 class MockRAGClient:
     _MOCK_DOCUMENTS: list[dict[str, Any]] = [
-        {"title": "Company Policy - Remote Work", "snippet": "Employees may work remotely up to 3 days per week...", "score": 0.95},
-        {"title": "Expense Reimbursement", "snippet": "Submit expenses within 30 days via the internal portal...", "score": 0.87},
-        {"title": "Onboarding Guide", "snippet": "New hires must complete security training in the first week...", "score": 0.82},
-        {"title": "API Documentation", "snippet": "All internal APIs use OAuth 2.0 for authentication...", "score": 0.78},
-        {"title": "Code Review Guidelines", "snippet": "All PRs require at least one approval before merge...", "score": 0.74},
+        {"document_id": "doc-001", "title": "Company Policy - Remote Work",
+         "snippet": "Employees may work remotely up to 3 days per week...",
+         "score": 0.95, "chunk_index": 0},
+        {"document_id": "doc-002", "title": "Expense Reimbursement",
+         "snippet": "Submit expenses within 30 days via the internal portal...",
+         "score": 0.87, "chunk_index": 0},
+        {"document_id": "doc-003", "title": "Onboarding Guide",
+         "snippet": "New hires must complete security training in the first week...",
+         "score": 0.82, "chunk_index": 1},
+        {"document_id": "doc-004", "title": "API Documentation",
+         "snippet": "All internal APIs use OAuth 2.0 for authentication...",
+         "score": 0.78, "chunk_index": 2},
+        {"document_id": "doc-005", "title": "Code Review Guidelines",
+         "snippet": "All PRs require at least one approval before merge...",
+         "score": 0.74, "chunk_index": 3},
     ]
 
     async def search(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
@@ -71,6 +81,8 @@ class HttpRAGClient:
                         "title": r.get("document_title", r.get("title", "Untitled")),
                         "snippet": r.get("content", "")[:200],
                         "score": r.get("score", 0.0),
+                        "document_id": r.get("document_id"),
+                        "chunk_index": r.get("chunk_index"),
                     }
                     for r in results
                 ]
@@ -83,7 +95,11 @@ class HttpRAGClient:
             )
             if self._fallback is not None:
                 return await self._fallback.search(query, top_k)
-            return [{"title": "Search Unavailable", "snippet": "The knowledge base is temporarily unavailable. Please try again shortly.", "score": 0.0}]
+            return [{
+                "title": "Search Unavailable",
+                "snippet": "The knowledge base is temporarily unavailable. Try again shortly.",
+                "score": 0.0,
+            }]
 
     async def health_check(self) -> bool:
         try:

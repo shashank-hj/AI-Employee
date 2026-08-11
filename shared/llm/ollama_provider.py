@@ -17,6 +17,7 @@ class OllamaProvider(OpenAICompatibleProvider):
         timeout: float = DEFAULT_TIMEOUT,
         temperature: float = DEFAULT_TEMPERATURE,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        usage_hook=None,
     ) -> None:
         super().__init__(
             base_url=base_url,
@@ -25,4 +26,5 @@ class OllamaProvider(OpenAICompatibleProvider):
             timeout=timeout,
             temperature=temperature,
             max_tokens=max_tokens,
+            usage_hook=usage_hook,
         )

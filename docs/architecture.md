@@ -119,7 +119,7 @@ SearchDocumentsTool
             │
             ├─→ HttpRAGClient ─→ POST {RAG_URL}/api/v1/documents/query
             │       │
-            │       ├─ Success → [{title, snippet, score}]
+            │       ├─ Success → [{title, snippet, score, document_id, chunk_index}]
             │       │
             │       └─ Failure → fallback_client.search()
             │                       │
@@ -127,7 +127,91 @@ SearchDocumentsTool
             │
             └─→ health_check() ── GET {RAG_URL}/health → bool
                     (called at startup, logs warning if unhealthy)
+
+Query path inside the RAG service (/api/v1/documents/query):
+    RAGService.query(query, top_k)
+        │
+        ├─ HybridRetriever (RRF fusion, const=60, scale=20, pool=top_k*3)
+        │     ├─ vector search  → Retriever.retrieve() (embeddings)
+        │     └─ lexical search → VectorStore.search_lexical() (Postgres FTS ts_rank)
+        │
+        └─ Ranker (keyword-overlap boost 0.08 on hybrid results)
+              └─ _build_citations(limit=3, 200-char snippet)
+                    → QueryResponse.citations [{document_id, title, chunk_index, content, score}]
 ```
+
+## Channel Adapters & Web Chat
+
+The gateway is the single entry point for all inbound channels. Each connector
+normalizes its native payload into the canonical `shared.schemas.channels` shape
+and calls the shared agent entrypoint, which the orchestrator exposes at
+`POST /api/agent/run`.
+
+```
+Gateway
+ ├─ POST /api/channels/web       → ChannelService (injectable transport) → orchestrator
+ ├─ POST /api/channels/{channel} → dispatch by ChannelType (whatsapp, email, crm, api, sms)
+ ├─ GET  /api/channels/stats     → channel traffic summary for the dashboard widget
+ ├─ GET  /api/channels/events    → recent channel events (limit/channel/status/start/end filters)
+ ├─ GET  /chat                   → self-contained single-file web chat (static/chat.html)
+ └─ GET  /                       → 307 redirect to /chat
+```
+
+Every inbound message outcome is recorded into the `channel_events` table
+(accepted / rate_limited / blocked + violation category, reason, redaction count,
+request id — never the raw message text). The dashboard's "Channels & Guardrails"
+widget reads it via the two GET endpoints above.
+
+- `shared/schemas/channels.py` defines `ChannelType`, `ChannelContact`,
+  `ChannelMessage`, `ChannelResponse`.
+- The orchestrator `AgentRequest`/`AgentResponse`/`AgentState` carry the channel
+  context (`channel`, `channel_message_id`, `tenant_id`, `contact`, `metadata`).
+
+## Guardrails & Rate Limiting
+
+Applied in the gateway before any request is forwarded to the orchestrator:
+
+```
+inbound message
+    │
+    ├─ Rate limiter (Redis fixed window, 429 when exceeded)
+    │     shared/guardrails/rate_limiter.py · RedisRateLimiter
+    │
+    ├─ Guardrails service (400 when blocked)
+    │     shared/guardrails/service.py · GuardrailsService
+    │        ├─ InputSanitizer   → strips control chars, trims whitespace
+    │        ├─ PIIRedactor      → masks emails/phones/credit-card/IP (longest-match merge)
+    │        ├─ ContentFilter    → blocks prompt-injection + toxic phrases
+    │        └─ redact_pii flag  → sanitized text replaces original when enabled
+    │
+    └─ forwarded with redacted body
+```
+
+Settings: `GUARDRAILS_ENABLED`, `RATE_LIMIT_ENABLED`, `RATE_LIMIT_LIMIT` (30/min),
+`RATE_LIMIT_WINDOW_SECONDS` (60). Guardrails degrade gracefully to "allowed" when
+Redis is unreachable.
+
+## Shared Task Queue
+
+Generic, Redis-backed async job queue used by background workers (e.g. the
+orchestrator's memory writer):
+
+```
+shared/queue/queue.py   RedisTaskQueue
+                           enqueue(task, payload) → rpush envelope {job_id, task, payload, enqueued_at}
+                           poll()                 → lpop + json decode (None on empty/bad payload)
+                           length()               → llen
+
+shared/queue/worker.py  RedisTaskWorker
+                           register(task_name, handler)
+                           start()/stop()         → background asyncio task running _run_loop/_dispatch
+                           unknown task / handler error → logged, loop continues
+```
+
+`MemoryWriterWorker` (`services/orchestrator/workers/memory_writer.py`) is a thin
+wrapper: it builds a `RedisTaskQueue` + `RedisTaskWorker`, registers
+`TASK_NAME = "memory_writer"` and delegates `start`/`stop`/`enqueue`. The worker
+degrades to a no-op (logged) when Redis is down.
 
 ## Configuration Guide
 
@@ -171,6 +255,10 @@ docker compose --profile all up
 | `LLM_MAX_TOKENS` | `1024` | Max output tokens for generation |
 | `LLM_CLASSIFY_MAX_TOKENS` | `512` | Max tokens for intent classification |
 | `LLM_FALLBACK_INTENT` | `general` | Default intent on classification failure |
+| `GUARDRAILS_ENABLED` | `true` | Apply input sanitization/redaction/PII filters |
+| `RATE_LIMIT_ENABLED` | `true` | Enforce per-client rate limit on channels |
+| `RATE_LIMIT_LIMIT` | `30` | Max requests per window per client |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | Rate-limit window length |
 
 ## Service Interfaces (Protocols)
 
@@ -194,6 +282,22 @@ shared/llm/
     ├── base.py        → LLMProvider ABC + IntentClassification + LLMResponse
     ├── sarvam_provider.py → Sarvam AI implementation (httpx + tenacity + structlog)
     ├── schemas.py     → Pydantic models for intent classification
+    └── __init__.py
+
+shared/schemas/
+    └── channels.py    → ChannelType, ChannelContact, ChannelMessage, ChannelResponse
+
+shared/guardrails/
+    ├── redactor.py    → PIIRedactor (emails, phones, credit cards, IPs)
+    ├── sanitizer.py   → InputSanitizer
+    ├── filter.py      → ContentFilter (injection + toxicity blocking)
+    ├── rate_limiter.py → RedisRateLimiter (fixed window)
+    ├── service.py     → GuardrailsService (enabled / redact_pii flags)
+    └── __init__.py
+
+shared/queue/
+    ├── queue.py       → RedisTaskQueue (rpush/lpop JSON envelopes)
+    ├── worker.py      → RedisTaskWorker (async dispatch loop)
     └── __init__.py
 
 shared/utils/

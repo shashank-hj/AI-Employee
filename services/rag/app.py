@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 import structlog
 from fastapi import FastAPI, Request
@@ -19,7 +20,12 @@ logger = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+
+    if settings.USAGE_PRICING:
+        os.environ["USAGE_PRICING"] = settings.USAGE_PRICING
+
     import rag.models  # noqa: F811 — register rag models on Base
+    import shared.usage.model  # noqa: F401 — register usage_events on Base
     try:
         async with engine.begin() as conn:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))

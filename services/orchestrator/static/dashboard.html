@@ -67,6 +67,14 @@ h2{color:var(--muted);font-size:1rem;font-weight:400;margin-bottom:1.5rem}
 .btn-sm{padding:3px 10px;font-size:.78rem;border-radius:4px}
 .btn-danger{background:var(--red);color:#fff;border-color:var(--red)}
 .btn-danger:hover{opacity:.85}
+/* API Usage & Cost */
+.usage-kpi{text-align:center;padding:.75rem}
+.usage-kpi-label{font-size:.75rem;color:var(--muted)}
+.usage-kpi-value{font-size:1.25rem;font-weight:600;color:#fff;margin-top:.25rem}
+.usage-select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:.8rem}
+.usage-trend{display:flex;align-items:flex-end;gap:4px;height:120px;padding:.5rem 0}
+.usage-bar{width:80%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;transition:background .2s}
+.usage-bar:hover{background:var(--green)}
 </style>
 </head>
 <body>
@@ -161,9 +169,71 @@ h2{color:var(--muted);font-size:1rem;font-weight:400;margin-bottom:1.5rem}
 </div>
 <div id="task-list"><div class="empty">Loading tasks...</div></div>
 
+<hr class="divider">
+
+<!-- API Usage & Cost -->
+<div class="header">
+  <h1 style="margin-bottom:0">API Usage & Cost</h1>
+  <div style="display:flex;gap:.5rem;align-items:center">
+    <select id="usageRange" class="usage-select" onchange="loadUsage()">
+      <option value="24h">Last 24 hours</option>
+      <option value="7d" selected>Last 7 days</option>
+      <option value="30d">Last 30 days</option>
+      <option value="all">All time</option>
+    </select>
+    <span class="badge badge-pending" id="usageCallsBadge">0 calls</span>
+  </div>
+</div>
+<div class="refresh">
+  <button onclick="loadUsage()">Refresh</button>
+</div>
+
+<div id="usageKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin-bottom:1rem"></div>
+
+<div class="card">
+  <div class="card-header"><h3>Cost trend</h3><span style="font-size:.75rem;color:var(--muted)">INR per period</span></div>
+  <div class="usage-trend" id="usageTrend"></div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem">
+  <div class="card"><div class="card-header"><h3>By model</h3></div><div id="usageByModel"></div></div>
+  <div class="card"><div class="card-header"><h3>By operation</h3></div><div id="usageByOperation"></div></div>
+</div>
+
+<div class="card" style="margin-top:1rem">
+  <div class="card-header"><h3>Recent calls</h3></div>
+  <div id="usageEvents" style="max-height:360px;overflow-y:auto"></div>
+</div>
+
+<hr class="divider">
+
+<!-- Channels & Guardrails -->
+<div class="header">
+  <h1 style="margin-bottom:0">Channels &amp; Guardrails</h1>
+  <div style="display:flex;gap:.5rem;align-items:center">
+    <select id="channelRange" class="usage-select" onchange="loadChannelStats()">
+      <option value="24h" selected>Last 24 hours</option>
+      <option value="7d">Last 7 days</option>
+      <option value="30d">Last 30 days</option>
+      <option value="all">All time</option>
+    </select>
+  </div>
+</div>
+<div class="refresh">
+  <button onclick="loadChannelStats()">Refresh</button>
+</div>
+
+<div id="channelKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin-bottom:1rem"></div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem">
+  <div class="card"><div class="card-header"><h3>By channel</h3></div><div id="channelByChannel"></div></div>
+  <div class="card"><div class="card-header"><h3>Recent events</h3></div><div id="channelEvents" style="max-height:360px;overflow-y:auto"></div></div>
+</div>
+
 <script>
 const SPEECH_URL = 'http://localhost:8006';
 const ORCHESTRATOR_URL = 'http://localhost:8001';
+const GATEWAY_URL = 'http://localhost:8000';
 const HITL_API = '/api/human-tasks';
 
 // ── HITL Tasks (existing) ──
@@ -677,9 +747,199 @@ async function askRagQuestion() {
   });
 })();
 
+// ── API Usage & Cost ──
+
+const USAGE_API = '/api/usage';
+
+function usageRangeParams() {
+  const range = document.getElementById('usageRange').value;
+  const now = new Date();
+  if (range === '24h') return `start=${new Date(now.getTime() - 24 * 3600 * 1000).toISOString()}`;
+  if (range === '7d') return `start=${new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString()}`;
+  if (range === '30d') return `start=${new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString()}`;
+  return '';
+}
+
+async function loadUsage() {
+  try {
+    const params = usageRangeParams();
+    const granularity = document.getElementById('usageRange').value === '24h' ? 'hour' : 'day';
+    const [summaryRes, trendRes, eventsRes] = await Promise.all([
+      fetch(`${USAGE_API}/summary?${params}`),
+      fetch(`${USAGE_API}/trend?${params}${params ? '&' : ''}granularity=${granularity}`),
+      fetch(`${USAGE_API}/events?limit=25&${params}`),
+    ]);
+    const summary = await summaryRes.json();
+    const trend = await trendRes.json();
+    const events = await eventsRes.json();
+    renderUsageKpis(summary);
+    renderUsageTrend(trend);
+    renderUsageBreakdowns(summary);
+    renderUsageEvents(events);
+    document.getElementById('usageCallsBadge').textContent = summary.totals.calls + ' calls';
+  } catch (e) {
+    const box = document.getElementById('usageKpis');
+    if (box) box.innerHTML = '<div class="empty" style="grid-column:1/-1">Error loading usage data</div>';
+  }
+}
+
+function fmtInr(v) { return '₹' + Number(v || 0).toFixed(4); }
+function fmtNum(v) { return Number(v || 0).toLocaleString(); }
+
+function renderUsageKpis(summary) {
+  const t = summary.totals;
+  const kpis = [
+    { label: 'Total cost', value: fmtInr(t.cost) },
+    { label: 'LLM input tokens', value: fmtNum(t.llm_input_tokens) },
+    { label: 'LLM output tokens', value: fmtNum(t.llm_output_tokens) },
+    { label: 'Total calls', value: fmtNum(t.calls) },
+    { label: 'Avg cost / call', value: fmtInr(t.avg_cost_per_call) },
+    { label: 'Errors', value: fmtNum(t.errors) },
+  ];
+  document.getElementById('usageKpis').innerHTML = kpis.map(k => `
+    <div class="card usage-kpi">
+      <div class="usage-kpi-label">${k.label}</div>
+      <div class="usage-kpi-value">${k.value}</div>
+    </div>`).join('');
+}
+
+function renderUsageTrend(trend) {
+  const el = document.getElementById('usageTrend');
+  if (!trend || !trend.length) {
+    el.innerHTML = '<div class="empty" style="width:100%">No usage in this period</div>';
+    return;
+  }
+  const maxCost = Math.max.apply(null, trend.map(p => p.cost)) || 0.0001;
+  el.innerHTML = trend.map(p => `
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%">
+      <div class="usage-bar" title="${escapeHtml(p.bucket)} — ${fmtInr(p.cost)} (${fmtNum(p.calls)} calls)"
+           style="height:${Math.max(2, (p.cost / maxCost) * 100)}%"></div>
+    </div>`).join('');
+}
+
+function renderUsageBreakdowns(summary) {
+  document.getElementById('usageByModel').innerHTML = breakdownTable(summary.by_model, 'model');
+  document.getElementById('usageByOperation').innerHTML = breakdownTable(summary.by_operation, 'operation');
+}
+
+function breakdownTable(rows, nameKey) {
+  if (!rows || !rows.length) return '<div class="empty">No data</div>';
+  return `<table class="doc-table">
+    <tr><th>${nameKey}</th><th>calls</th><th>input</th><th>output</th><th>cost</th></tr>
+    ${rows.map(r => `<tr>
+      <td>${escapeHtml(r[nameKey])}</td>
+      <td>${fmtNum(r.calls)}</td>
+      <td>${fmtNum(r.input_units)}</td>
+      <td>${fmtNum(r.output_units)}</td>
+      <td>${fmtInr(r.cost)}</td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+function renderUsageEvents(events) {
+  const el = document.getElementById('usageEvents');
+  if (!events || !events.length) {
+    el.innerHTML = '<div class="empty">No recent calls</div>';
+    return;
+  }
+  el.innerHTML = `<table class="doc-table">
+    <tr><th>Time</th><th>Service</th><th>Operation</th><th>Model</th><th>In</th><th>Out</th><th>Cost</th><th>Status</th></tr>
+    ${events.map(e => `<tr>
+      <td style="font-size:.75rem;color:var(--muted)">${new Date(e.recorded_at).toLocaleString()}</td>
+      <td>${e.service}</td>
+      <td>${e.operation}</td>
+      <td>${escapeHtml(e.model || '-')}</td>
+      <td>${fmtNum(e.input_units)}</td>
+      <td>${fmtNum(e.output_units)}</td>
+      <td>${fmtInr(e.cost)}</td>
+      <td style="color:${e.status === 'error' ? 'var(--red)' : 'var(--green)'}">${e.status}</td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+// ── Channels & Guardrails ──
+
+function channelRangeParams() {
+  const range = document.getElementById('channelRange').value;
+  const now = new Date();
+  if (range === '24h') return `start=${new Date(now.getTime() - 24 * 3600 * 1000).toISOString()}`;
+  if (range === '7d') return `start=${new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString()}`;
+  if (range === '30d') return `start=${new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString()}`;
+  return '';
+}
+
+async function loadChannelStats() {
+  const params = channelRangeParams();
+  try {
+    const [statsRes, eventsRes] = await Promise.all([
+      fetch(`${GATEWAY_URL}/api/channels/stats?${params}`),
+      fetch(`${GATEWAY_URL}/api/channels/events?limit=25&${params}`),
+    ]);
+    if (!statsRes.ok) throw new Error('stats ' + statsRes.status);
+    const stats = await statsRes.json();
+    const events = await eventsRes.json();
+    renderChannelKpis(stats.totals);
+    renderChannelByChannel(stats.by_channel);
+    renderChannelEvents(events);
+  } catch (e) {
+    const box = document.getElementById('channelKpis');
+    if (box) box.innerHTML = '<div class="empty" style="grid-column:1/-1">Error loading channel data</div>';
+  }
+}
+
+function renderChannelKpis(t) {
+  const items = [
+    { label: 'Accepted', value: fmtNum(t.accepted), cls: 'doc-status-ready' },
+    { label: 'Blocked', value: fmtNum(t.blocked), cls: 'doc-status-failed' },
+    { label: 'Rate limited', value: fmtNum(t.rate_limited), cls: 'doc-status-processing' },
+    { label: 'PII redactions', value: fmtNum(t.redactions), cls: '' },
+  ];
+  document.getElementById('channelKpis').innerHTML = items.map(k => `
+    <div class="card usage-kpi">
+      <div class="usage-kpi-label">${k.label}</div>
+      <div class="usage-kpi-value ${k.cls}">${k.value}</div>
+    </div>`).join('');
+}
+
+function renderChannelByChannel(rows) {
+  const el = document.getElementById('channelByChannel');
+  if (!rows || !rows.length) {
+    el.innerHTML = '<div class="empty">No channel traffic</div>';
+    return;
+  }
+  el.innerHTML = `<table class="doc-table">
+    <tr><th>Channel</th><th>calls</th></tr>
+    ${rows.map(r => `<tr><td>${escapeHtml(r.channel)}</td><td>${fmtNum(r.calls)}</td></tr>`).join('')}
+  </table>`;
+}
+
+function renderChannelEvents(events) {
+  const el = document.getElementById('channelEvents');
+  if (!events || !events.length) {
+    el.innerHTML = '<div class="empty">No recent events</div>';
+    return;
+  }
+  const statusCls = { accepted: 'doc-status-ready', blocked: 'doc-status-failed', rate_limited: 'doc-status-processing' };
+  el.innerHTML = `<table class="doc-table">
+    <tr><th>Time</th><th>Channel</th><th>Status</th><th>Red.</th><th>Reason</th><th>Request</th></tr>
+    ${events.map(e => `<tr>
+      <td style="font-size:.75rem;color:var(--muted)">${new Date(e.recorded_at).toLocaleString()}</td>
+      <td>${escapeHtml(e.channel)}</td>
+      <td class="${statusCls[e.status] || ''}">${e.status}</td>
+      <td>${fmtNum(e.redactions_count)}</td>
+      <td style="font-size:.78rem">${escapeHtml(e.reason || e.violation_category || '—')}</td>
+      <td style="font-size:.75rem;color:var(--muted)">${escapeHtml((e.request_id || '').substring(0, 8))}</td>
+    </tr>`).join('')}
+  </table>`;
+}
+
 loadTasks();
 listRagDocs();
+loadUsage();
+loadChannelStats();
 setInterval(loadTasks, 15000);
+setInterval(loadUsage, 30000);
+setInterval(loadChannelStats, 30000);
 </script>
 </body>
 </html>

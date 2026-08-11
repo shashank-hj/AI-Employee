@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from gateway.schemas.health import HealthResponse
 
 router = APIRouter()
