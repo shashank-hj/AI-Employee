@@ -1,16 +1,24 @@
 import os
-import structlog
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from speech.config import settings
-from speech.routers import health, stt, tts, translation, language_detection, transliteration
 from shared.models.base import Base
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
+from speech.config import settings
+from speech.routers import (
+    health,
+    language_detection,
+    models,
+    stt,
+    translation,
+    transliteration,
+    tts,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -64,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, tags=["Health"])
     app.include_router(stt.router, tags=["Speech-to-Text"])
     app.include_router(tts.router, tags=["Text-to-Speech"])
+    app.include_router(models.router, tags=["Voice Models"])
     app.include_router(translation.router, tags=["Translation"])
     app.include_router(language_detection.router, tags=["Language Detection"])
     app.include_router(transliteration.router, tags=["Transliteration"])

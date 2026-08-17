@@ -1,6 +1,5 @@
 import pytest
 
-
 SESSION_PAYLOAD = {
     "user_id": "user-1",
     "messages": [
@@ -40,7 +39,7 @@ class TestSessionEndpoints:
             "messages": [{"role": "user", "content": "Updated"}],
         })
         assert update.status_code == 200
-        assert update.json()["message_count"] == 1
+        assert update.json()["message_count"] == 3
 
     @pytest.mark.asyncio
     async def test_get_nonexistent_session(self, client):

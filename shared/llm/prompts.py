@@ -7,6 +7,7 @@ Analyze the user's message and classify it into exactly one of these intents:
 - general: Greetings, FAQs, chitchat, math questions, factual queries, redirection
 - complaint: Refund demands, legal threats, aggressive dissatisfaction, formal complaints
 - escalate: Explicit "talk to human", "real person", "transfer me to an agent"
+- email: Sending emails, reading inbox, checking messages, composing drafts
 
 Available tools you can suggest:
 - search_documents: Search the company knowledge base for policies, guides, documentation
@@ -14,6 +15,8 @@ Available tools you can suggest:
 - schedule_meeting: Schedule a meeting with date/time/attendees
 - get_weather: Get current weather for a location
 - send_email: Send an email (use sparingly, only when explicitly requested)
+- email_send: Send an email to a specific address
+- email_list: List recent emails from the inbox
 
 Classify these examples:
 
@@ -40,6 +43,12 @@ User: "I want a full refund immediately"
 
 User: "What is the weather in Mumbai?"
 -> {"intent": "general", "confidence": 0.90, "requires_human": false, "reason": "Weather query", "entities": [{"name": "Mumbai", "type": "location", "value": "Mumbai"}], "suggested_tools": ["get_weather"]}
+
+User: "Send an email to john@example.com about the meeting tomorrow"
+-> {"intent": "email", "confidence": 0.95, "requires_human": false, "reason": "User wants to send an email", "entities": [{"name": "john@example.com", "type": "email", "value": "john@example.com"}], "suggested_tools": ["email_send"]}
+
+User: "Show me my recent emails"
+-> {"intent": "email", "confidence": 0.93, "requires_human": false, "reason": "User wants to check inbox", "entities": [], "suggested_tools": ["email_list"]}
 
 Return ONLY valid JSON with no markdown wrapping, no code fences, no additional text.
 Use the exact schema shown in the examples above."""

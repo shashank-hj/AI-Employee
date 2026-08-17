@@ -311,6 +311,91 @@ class TransferToHumanTool(BaseTool):
         }
 
 
+class GmailSendTool(BaseTool):
+    name = "email_send"
+    description = "Send an email via SMTP using the configured email account."
+
+    parameters_schema = {
+        "type": "object",
+        "properties": {
+            "to": {"type": "string", "description": "Recipient email address"},
+            "subject": {"type": "string", "description": "Email subject line"},
+            "body": {"type": "string", "description": "Email body content"},
+            "cc": {"type": "string", "description": "CC recipient (optional)"},
+        },
+        "required": ["to", "subject", "body"],
+    }
+
+    def __init__(self, gmail_client=None):
+        self._email = gmail_client
+
+    async def invoke(self, parameters: dict[str, Any]) -> dict[str, Any]:
+        to = parameters.get("to", "")
+        subject = parameters.get("subject", "")
+        body = parameters.get("body", "")
+        cc = parameters.get("cc")
+        if self._email and self._email.enabled:
+            try:
+                import asyncio
+                result = await asyncio.to_thread(
+                    self._email.send_message, to, subject, body, cc
+                )
+                return {"success": True, "data": result}
+            except Exception as exc:
+                return {"success": False, "error": str(exc)}
+        return {
+            "success": True,
+            "data": {
+                "message_id": f"mock-{random.randint(10000, 99999)}",
+                "to": to,
+                "subject": subject,
+                "status": "delivered (demo mode)",
+            },
+        }
+
+
+class GmailListTool(BaseTool):
+    name = "email_list"
+    description = "List recent emails from the configured inbox via IMAP."
+
+    parameters_schema = {
+        "type": "object",
+        "properties": {
+            "max_results": {"type": "integer", "description": "Number of emails to list", "default": 5},
+            "query": {"type": "string", "description": "Optional IMAP search (e.g. 'FROM \"boss@company.com\"')"},
+        },
+        "required": [],
+    }
+
+    def __init__(self, gmail_client=None):
+        self._email = gmail_client
+
+    async def invoke(self, parameters: dict[str, Any]) -> dict[str, Any]:
+        max_results = parameters.get("max_results", 5)
+        query = parameters.get("query", "")
+        if self._email and self._email.enabled:
+            try:
+                import asyncio
+                messages = await asyncio.to_thread(self._email.list_messages, max_results, query)
+                return {"success": True, "data": {"messages": messages}}
+            except Exception as exc:
+                return {"success": False, "error": str(exc)}
+        return {
+            "success": True,
+            "data": {
+                "messages": [
+                    {
+                        "id": "mock-001",
+                        "from": "Demo User <demo@example.com>",
+                        "subject": "Welcome to AI Employee",
+                        "date": "2026-01-01",
+                        "snippet": "This is a demo inbox. Configure Gmail SMTP/IMAP to see real emails.",
+                    }
+                ]
+            },
+        }
+
+
 def register_mock_tools(
     registry: "ToolRegistry",
     rag_client: RAGClient | None = None,
@@ -320,6 +405,7 @@ def register_mock_tools(
     email_service: Any = None,
     escalation_service: Any = None,
     weather_service: Any = None,
+    gmail_client: Any = None,
 ) -> None:
     registry.register(CalculatorTool())
     registry.register(SearchDocumentsTool(rag_client=rag_client))
@@ -331,3 +417,5 @@ def register_mock_tools(
     registry.register(CalendarTool(calendar_service=calendar_service))
     registry.register(ScheduleDemoTool(calendar_service=calendar_service))
     registry.register(TransferToHumanTool(escalation_service=escalation_service))
+    registry.register(GmailSendTool(gmail_client=gmail_client))
+    registry.register(GmailListTool(gmail_client=gmail_client))

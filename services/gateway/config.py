@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     # ── Channel event recording (dashboard) ──
     CHANNEL_EVENTS_ENABLED: bool = True
 
+    # ── Channel forwarding ──
+    CHANNEL_TIMEOUT_SECONDS: float = 300.0
+
+    # ── Integrated dashboard (chat lives inside the dashboard now) ──
+    # Browser-reachable URL for the dashboard; defaults to the localhost
+    # orchestrator port (which is also what dashboard.html hardcodes).
+    DASHBOARD_PUBLIC_URL: str = "http://localhost:8001/dashboard"
+
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 
 

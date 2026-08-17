@@ -27,12 +27,14 @@ async def get_long_term(
 
 @router.get("/long-term")
 async def list_long_term(
-    user_id: str = Query(...),
+    user_id: str = Query(default=None),
     memory_type: Optional[str] = Query(None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     service: MemoryService = Depends(get_memory_service),
 ):
+    if not user_id:
+        return paginated_response(items=[], total=0, page=page, page_size=page_size)
     items, total = await service.list_long_term(user_id, memory_type, page, page_size)
     return paginated_response(
         items=[i.model_dump(mode="json") for i in items],

@@ -9,6 +9,7 @@ widget via :class:`ChannelEventRecorder`.
 
 import time
 from datetime import datetime
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -51,6 +52,23 @@ def _parse_dt(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _carry_structured_pii(message: ChannelMessage, redactions: list[Any]) -> None:
+    """Re-surface redacted PII as structured fields so downstream features (e.g.
+    calendar attendee booking) can still use them while free text stays redacted.
+
+    Extracted EMAIL values are stored in ``metadata["attendees"]`` and the first
+    one is used as the sender email when none was provided.
+    """
+    emails = [r.original for r in redactions if getattr(r, "label", None) == "EMAIL"]
+    if not emails:
+        return
+    metadata = dict(message.metadata or {})
+    metadata["attendees"] = emails
+    message.metadata = metadata
+    if not message.sender.email:
+        message.sender.email = emails[0]
 
 
 @router.post("/{channel}", response_model=ChannelResponse, summary="Ingest a message for a channel")
@@ -100,6 +118,7 @@ async def inbound_message(
             redactions=len(result.redactions),
         )
     message.text = result.text
+    _carry_structured_pii(message, result.redactions)
 
     response = await service.process(message)
     if isinstance(response, dict):

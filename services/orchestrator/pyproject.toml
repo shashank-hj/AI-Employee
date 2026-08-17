@@ -22,6 +22,11 @@ dependencies = [
     "langgraph>=0.2.0",
     "langgraph-checkpoint-postgres>=3.1.1",
     "psycopg-binary>=3.3.4",
+    "google-api-python-client>=2.100.0",
+    "google-auth>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
+    "dateparser>=1.1.0",
+    "icalendar>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -48,6 +53,7 @@ packages = [
     "orchestrator.services",
     "orchestrator.context",
     "orchestrator.database",
+    "orchestrator.services.calendar",
     "orchestrator.workers",
 ]
 package-dir = { "orchestrator" = "." }

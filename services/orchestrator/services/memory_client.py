@@ -237,12 +237,16 @@ class MemoryClient:
         session_id: str,
         role: str,
         content: str,
+        user_id: str | None = None,
     ) -> dict[str, Any] | None:
         """Store a conversation message in PostgreSQL."""
+        payload: dict[str, Any] = {"session_id": session_id, "role": role, "content": content}
+        if user_id is not None:
+            payload["user_id"] = user_id
         try:
             response = await self._client.post(
                 "/memory/conversation",
-                json={"session_id": session_id, "role": role, "content": content},
+                json=payload,
             )
             response.raise_for_status()
             return response.json()

@@ -10,6 +10,11 @@ from typing import Any
 
 from orchestrator.graph.nodes import RESPONSE_SYSTEM_PROMPT
 
+_BOOKING_TOOLS = frozenset({
+    "calendar", "schedule_demo", "schedule_meeting",
+    "calendar_list", "calendar_update", "calendar_cancel",
+})
+
 
 @dataclass(frozen=True)
 class AgentProfile:
@@ -47,15 +52,32 @@ AGENT_ROSTER: dict[str, AgentProfile] = {
         system_prompt=(
             "You are a Booking AI Employee. You help users schedule demos, appointments, and meetings. "
             "Be efficient and precise with dates, times, and availability. Confirm all booking details "
-            "before finalizing. Offer alternative slots if the requested time is unavailable."
+            "before finalizing. If the requested time is unavailable, state clearly that the slot is taken "
+            "and offer the concrete alternative slots listed in available_slots. "
+            "Never discuss pricing, product features, or demos unless the user asks. "
+            "Never invent dates, times, or email addresses. "
+            "When a meeting is scheduled, state the date/time and the calendar event link."
         ),
-        allowed_tools=frozenset({"calendar", "schedule_demo", "schedule_meeting"}),
+        allowed_tools=frozenset({
+            "calendar", "schedule_demo", "schedule_meeting",
+            "calendar_list", "calendar_update", "calendar_cancel",
+        }),
     ),
     "general": AgentProfile(
         name="general",
-        description="Greetings, FAQs, chitchat, math, and knowledge questions.",
+        description="Greetings, FAQs, chitchat, math, knowledge questions, and email.",
         system_prompt=RESPONSE_SYSTEM_PROMPT,
-        allowed_tools=frozenset({"search_documents", "calculator", "get_weather", "send_email"}),
+        allowed_tools=frozenset({"search_documents", "calculator", "get_weather", "send_email", "email_send", "email_list"}),
+    ),
+    "email": AgentProfile(
+        name="email",
+        description="Send and read emails.",
+        system_prompt=(
+            "You are an Email AI Employee. You help users send and read emails. "
+            "When sending emails, confirm the recipient, subject, and body before sending. "
+            "When listing emails, summarize the most relevant ones. Be professional and concise."
+        ),
+        allowed_tools=frozenset({"email_send", "email_list"}),
     ),
     "complaint": AgentProfile(
         name="complaint",
@@ -99,10 +121,15 @@ class AgentRoster:
 
         for profile in AGENT_ROSTER.values():
             overlap = len(tool_set & profile.allowed_tools)
-            if overlap > best_score:
+            score = overlap
+            # Pure scheduling plans should resolve to the booking agent even
+            # when the sales agent shares tools like schedule_demo/calendar.
+            if tool_set <= _BOOKING_TOOLS and profile.name == "booking":
+                score += 0.5
+            if score > best_score:
                 best = profile
-                best_score = overlap
-            elif overlap == best_score and profile.name == AGENT_FALLBACK:
+                best_score = score
+            elif score == best_score and profile.name == AGENT_FALLBACK:
                 best = profile
 
         return best or AGENT_ROSTER[AGENT_FALLBACK]

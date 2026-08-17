@@ -1,5 +1,7 @@
 # Environment
 .env
+credentials.json
+token.json
 
 # Python
 __pycache__/
@@ -49,3 +51,6 @@ alembic/versions/*.pyc
 
 # Logs
 *.log
+
+# opencode LLM engine config
+.env-opencode

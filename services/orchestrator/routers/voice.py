@@ -2,7 +2,7 @@
 import structlog
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
-from orchestrator.container import get_voice_service
+from orchestrator.container import get_speech_client, get_voice_service
 from orchestrator.schemas.voice import (
     VoiceStatusResponse,
     VoiceTextTurnRequest,
@@ -10,10 +10,17 @@ from orchestrator.schemas.voice import (
     VoiceTurnRequest,
     VoiceTurnResponse,
 )
+from orchestrator.services.speech_client import SpeechClient
 from orchestrator.services.voice_service import VoiceService
 
 router = APIRouter(prefix="/api/voice", tags=["Voice"])
 logger = structlog.get_logger(__name__)
+
+
+@router.get("/models")
+async def voice_models(speech: SpeechClient = Depends(get_speech_client)) -> dict:
+    """List selectable Sarvam STT/TTS models, speakers, and languages."""
+    return await speech.list_models()
 
 
 @router.post("/turn", response_model=VoiceTurnResponse)

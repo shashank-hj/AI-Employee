@@ -24,9 +24,10 @@ class SarvamSTTProvider:
         audio_bytes: bytes,
         language_code: str | None = None,
         mode: str = "transcribe",
+        model: str | None = None,
     ) -> dict[str, str]:
         files = {"file": ("audio.webm", audio_bytes, "audio/webm")}
-        data: dict[str, str] = {"model": self._model, "mode": mode}
+        data: dict[str, str] = {"model": model or self._model, "mode": mode}
         if language_code:
             data["language_code"] = language_code
 

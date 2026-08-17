@@ -38,5 +38,9 @@ packages = [
     "gateway.routers",
     "gateway.schemas",
     "gateway.services",
+    "gateway.static",
 ]
 package-dir = {"gateway" = "."}
+
+[tool.setuptools.package-data]
+gateway = ["static/*.html"]

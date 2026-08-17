@@ -36,9 +36,11 @@ async def text_to_speech(
         input_format=request.input_format,
         persona=request.persona,
         speaker=request.speaker,
+        model=request.model,
     )
     chars = len(request.text)
     start = time.perf_counter()
+    effective_model = request.model or provider._model
 
     try:
         audio_bytes = await provider.synthesize(
@@ -47,6 +49,7 @@ async def text_to_speech(
             persona=request.persona,
             speaker=request.speaker,
             input_format=request.input_format,
+            model=request.model,
         )
     except SarvamAPIError as exc:
         duration_ms = (time.perf_counter() - start) * 1000
@@ -55,7 +58,7 @@ async def text_to_speech(
             service="speech",
             category="speech",
             operation="tts",
-            model=provider._model,
+            model=effective_model,
             unit="characters",
             input_units=chars,
             status="error",
@@ -79,7 +82,7 @@ async def text_to_speech(
             service="speech",
             category="speech",
             operation="tts",
-            model=provider._model,
+            model=effective_model,
             unit="characters",
             input_units=chars,
             status="error",
@@ -98,7 +101,7 @@ async def text_to_speech(
             service="speech",
             category="speech",
             operation="tts",
-            model=provider._model,
+            model=effective_model,
             unit="characters",
             input_units=chars,
             status="error",
@@ -114,7 +117,7 @@ async def text_to_speech(
         service="speech",
         category="speech",
         operation="tts",
-        model=provider._model,
+        model=effective_model,
         unit="characters",
         input_units=chars,
         duration_ms=round(duration_ms, 2),
@@ -123,6 +126,7 @@ async def text_to_speech(
         request.persona,
         request.speaker,
         request.language_code,
+        request.model,
     )
     return TextToSpeechResponse(
         audio_base64=base64.b64encode(audio_bytes).decode("utf-8"),
@@ -154,6 +158,7 @@ async def text_to_speech_stream(
 
     chars = len(request.text)
     start = time.perf_counter()
+    effective_model = request.model or provider._model
 
     async def event_generator():
         chunks_sent = 0
@@ -164,6 +169,7 @@ async def text_to_speech_stream(
                 persona=request.persona,
                 speaker=request.speaker,
                 input_format=request.input_format,
+                model=request.model,
             ):
                 chunks_sent += 1
                 yield _sse(json.dumps(chunk))
@@ -173,7 +179,7 @@ async def text_to_speech_stream(
                 service="speech",
                 category="speech",
                 operation="tts_stream",
-                model=provider._model,
+                model=effective_model,
                 unit="characters",
                 input_units=chars,
                 output_units=chunks_sent,
@@ -186,7 +192,7 @@ async def text_to_speech_stream(
                 service="speech",
                 category="speech",
                 operation="tts_stream",
-                model=provider._model,
+                model=effective_model,
                 unit="characters",
                 input_units=chars,
                 status="error",
@@ -202,7 +208,7 @@ async def text_to_speech_stream(
                 service="speech",
                 category="speech",
                 operation="tts_stream",
-                model=provider._model,
+                model=effective_model,
                 unit="characters",
                 input_units=chars,
                 status="error",
@@ -236,6 +242,7 @@ async def text_to_speech_websocket(websocket: WebSocket):
         data = await websocket.receive_json()
         text = data.get("text", "")
         language_code = data.get("language_code")
+        model = data.get("model")
         persona = data.get("persona")
         speaker = data.get("speaker")
         input_format = data.get("input_format", "text")
@@ -248,6 +255,7 @@ async def text_to_speech_websocket(websocket: WebSocket):
         async for chunk in provider.synthesize_stream(
             text,
             language_code=language_code,
+            model=model,
             persona=persona,
             speaker=speaker,
             input_format=input_format,

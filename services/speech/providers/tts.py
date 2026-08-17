@@ -9,6 +9,7 @@ import structlog
 
 from speech.config import settings
 from speech.providers.errors import SarvamAPIError, extract_sarve_error
+from speech.providers.models import TTS_DEFAULT_MODEL, TTS_DEFAULT_SPEAKER
 from speech.providers.personas import resolve_speaker
 from speech.providers.ssml import is_ssml, ssml_to_text
 
@@ -80,25 +81,29 @@ class SarvamTTSProvider:
         self,
         api_key: str | None = None,
         base_url: str | None = None,
+        model: str | None = None,
         speaker: str | None = None,
         target_language_code: str | None = None,
         timeout: float | None = None,
     ) -> None:
         self._api_key = api_key or settings.SARVAM_API_KEY
         self._base_url = (base_url or settings.SARVAM_BASE_URL).rstrip("/")
-        self._model = "bulbul"
+        self._model = model or settings.SARVAM_TTS_MODEL or TTS_DEFAULT_MODEL
         self._speaker = speaker or settings.SARVAM_TTS_SPEAKER
         self._lang = target_language_code or settings.SARVAM_TTS_LANGUAGE
         self._timeout = timeout or _TTS_DEFAULT_TIMEOUT
 
     async def _synthesize_single(
-        self, text: str, language_code: str, speaker: str | None = None
+        self, text: str, language_code: str, speaker: str | None = None, model: str | None = None
     ) -> bytes:
         payload = {
             "text": text,
-            "speaker": speaker or self._speaker,
+            "speaker": speaker or self._speaker or TTS_DEFAULT_SPEAKER.get(self._model, "anushka"),
             "target_language_code": language_code,
         }
+        effective_model = model or self._model
+        if effective_model != TTS_DEFAULT_MODEL:
+            payload["model"] = effective_model
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(
@@ -129,12 +134,16 @@ class SarvamTTSProvider:
         persona: str | None = None,
         speaker: str | None = None,
         language_code: str | None = None,
+        model: str | None = None,
     ) -> tuple[str, str, str | None]:
         """Resolve (effective_speaker, effective_lang, resolved_persona)."""
         resolved_persona = persona
         effective_speaker, persona_lang = resolve_speaker(persona, speaker)
         if not persona and not speaker:
             resolved_persona = "default"
+        effective_model = model or self._model
+        if not speaker and not persona:
+            effective_speaker = TTS_DEFAULT_SPEAKER.get(effective_model, effective_speaker)
         lang = language_code or persona_lang or self._lang
         return effective_speaker, lang, resolved_persona
 
@@ -145,8 +154,9 @@ class SarvamTTSProvider:
         persona: str | None = None,
         speaker: str | None = None,
         input_format: str = "text",
+        model: str | None = None,
     ) -> bytes:
-        effective_speaker, lang, _ = self._resolve_voice(persona, speaker, language_code)
+        effective_speaker, lang, _ = self._resolve_voice(persona, speaker, language_code, model)
 
         if input_format == "ssml" and is_ssml(text):
             text = ssml_to_text(text)
@@ -161,7 +171,7 @@ class SarvamTTSProvider:
         audio_segments: list[bytes] = []
         for i, chunk in enumerate(chunks):
             try:
-                segment = await self._synthesize_single(chunk, lang, effective_speaker)
+                segment = await self._synthesize_single(chunk, lang, effective_speaker, model)
                 if segment:
                     audio_segments.append(segment)
             except Exception as exc:
@@ -179,6 +189,7 @@ class SarvamTTSProvider:
             successful=len(audio_segments),
             audio_bytes=len(combined),
             speaker=effective_speaker,
+            model=model or self._model,
         )
         return combined
 
@@ -189,6 +200,7 @@ class SarvamTTSProvider:
         persona: str | None = None,
         speaker: str | None = None,
         input_format: str = "text",
+        model: str | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Yield per-chunk audio as it is synthesized (chunked, turn-based).
 
@@ -200,7 +212,7 @@ class SarvamTTSProvider:
                 "audio_base64": str,   # wav bytes, base64-encoded
             }
         """
-        effective_speaker, lang, _ = self._resolve_voice(persona, speaker, language_code)
+        effective_speaker, lang, _ = self._resolve_voice(persona, speaker, language_code, model)
 
         if input_format == "ssml" and is_ssml(text):
             text = ssml_to_text(text)
@@ -214,7 +226,7 @@ class SarvamTTSProvider:
 
         for i, chunk in enumerate(chunks):
             try:
-                segment = await self._synthesize_single(chunk, lang, effective_speaker)
+                segment = await self._synthesize_single(chunk, lang, effective_speaker, model)
             except Exception as exc:
                 logger.warning(
                     "tts_stream_chunk_failed",

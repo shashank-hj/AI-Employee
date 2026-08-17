@@ -49,6 +49,7 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - CHANNEL_TIMEOUT_SECONDS=${CHANNEL_TIMEOUT_SECONDS:-300}
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,6 +68,11 @@ services:
     container_name: ai-employee-orchestrator
     ports:
       - "${ORCHESTRATOR_PORT:-8001}:8001"
+    env_file:
+      - path: .env
+        required: false
+      - path: .env-opencode
+        required: false
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/ai_employee
       - REDIS_URL=redis://redis:6379/0
@@ -74,7 +80,8 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ENVIRONMENT=${ENVIRONMENT:-development}
-      - LLM_PROVIDER=${LLM_PROVIDER:-}
+      # LLM_PROVIDER intentionally comes from env_file (.env / .env-opencode)
+      # so the opencode switch lives in .env-opencode, not .env.
       - RAG_URL=http://rag:8004
       - RAG_HEALTH_PATH=/health
       - SPEECH_URL=http://speech:8006
@@ -85,6 +92,23 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
       - USAGE_ENABLED=${USAGE_ENABLED:-true}
       - USAGE_PRICING=${USAGE_PRICING:-{}}
+      - EMAIL_ENABLED=${EMAIL_ENABLED:-false}
+      - EMAIL_ADDRESS=${EMAIL_ADDRESS:-}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
+      - EMAIL_SMTP_HOST=${EMAIL_SMTP_HOST:-smtp.gmail.com}
+      - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT:-587}
+      - EMAIL_IMAP_HOST=${EMAIL_IMAP_HOST:-imap.gmail.com}
+      - EMAIL_IMAP_PORT=${EMAIL_IMAP_PORT:-993}
+      - EMAIL_DISPLAY_NAME=${EMAIL_DISPLAY_NAME:-AI Employee}
+      - CALENDAR_ENABLED=${CALENDAR_ENABLED:-false}
+      - CALENDAR_PROVIDER=${CALENDAR_PROVIDER:-auto}
+      - CALENDAR_TIMEZONE=${CALENDAR_TIMEZONE:-Asia/Kolkata}
+      - CALENDAR_ICS_INVITES_ENABLED=${CALENDAR_ICS_INVITES_ENABLED:-true}
+      - CALENDAR_DUPLICATE_WINDOW_MINUTES=${CALENDAR_DUPLICATE_WINDOW_MINUTES:-15}
+      - GOOGLE_CALENDAR_ID=${GOOGLE_CALENDAR_ID:-primary}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REFRESH_TOKEN=${GOOGLE_REFRESH_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -7,6 +7,9 @@ class TextToSpeechRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000)
     language_code: str = "en-IN"
     input_format: Literal["text", "ssml"] = "text"
+    model: str | None = Field(
+        default=None, description="Sarvam TTS model (bulbul:v2, bulbul:v3)."
+    )
     persona: str | None = Field(
         default=None, description="Named voice persona (see personas registry)."
     )

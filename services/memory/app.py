@@ -27,7 +27,37 @@ async def lifespan(app: FastAPI):
         logger.info("database_initialized")
     except Exception as e:
         logger.warning("database_init_skipped", error=str(e))
+    try:
+        await _run_backfill()
+    except Exception as e:
+        logger.warning("backfill_message_counts_skipped", error=str(e))
     yield
+
+
+async def _run_backfill() -> None:
+    """Reconcile Redis message_count with PostgreSQL after startup."""
+    from memory.container import get_embedding_service, get_session_store, get_summarizer
+    from memory.database.session import async_session
+    from memory.repositories.conversation import ConversationRepository
+    from memory.repositories.long_term import LongTermMemoryRepository
+    from memory.repositories.profile import ProfileRepository
+    from memory.services.memory_service import MemoryService
+
+    async with async_session() as db:
+        service = MemoryService(
+            session_store=get_session_store(),
+            long_term_repo=LongTermMemoryRepository(db),
+            conversation_repo=ConversationRepository(db),
+            profile_repo=ProfileRepository(db),
+            embedding_service=get_embedding_service(),
+            summarizer=get_summarizer(),
+        )
+        result = await service.backfill_message_counts()
+        logger.info(
+            "backfill_message_counts_startup",
+            total=result.get("total", 0),
+            errors=len(result.get("errors", [])),
+        )
 
 
 def create_app() -> FastAPI:
@@ -62,5 +92,19 @@ def create_app() -> FastAPI:
     app.include_router(search.router, tags=["Search"])
     app.include_router(conversations.router, tags=["Conversations"])
     app.include_router(profiles.router, tags=["Profiles"])
+
+    @app.post("/sessions/{session_id}/messages")
+    async def compat_add_messages(session_id: str, payload: dict):
+        """Compatibility route for gateway which posts to old /sessions/ format."""
+        from fastapi.responses import JSONResponse
+        requests = payload.get("requests", [])
+        from memory.container import get_memory_service
+        service = get_memory_service()
+        from memory.schemas.session import SessionMessage
+        for req in requests:
+            msg = SessionMessage(role=req.get("role", "user"), content=req.get("content", ""))
+            await service.add_session_message(session_id, msg)
+        sess = await service.get_session(session_id)
+        return JSONResponse(content=sess.model_dump())
 
     return app

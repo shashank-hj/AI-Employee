@@ -70,25 +70,33 @@ def _extract_location(text: str) -> str:
 
 
 def _extract_subject(text: str) -> str:
+    for prefix in ["about", "regarding", "re:", "subject:", "titled", "called", "with subject", "saying"]:
+        pattern = re.compile(rf"\b{prefix}\s+(.+?)(?:\s+(?:to|at|on|for|with|and|tomorrow|next|today|schedule)|\s*$)", re.IGNORECASE)
+        match = pattern.search(text)
+        if match:
+            return match.group(1).strip().strip(".,;:")[:80]
     cleaned = re.sub(
         r"\b(send|email|mail|to|compos|draft|an|a|the)\b",
         "", text, flags=re.IGNORECASE,
     )
-    return cleaned.strip().strip(".")[:80] or "No Subject"
+    cleaned = re.sub(
+        r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b",
+        "", cleaned,
+    )
+    cleaned = " ".join(cleaned.split()).strip(" .,;:")
+    return cleaned[:80] if cleaned else "No Subject"
 
 
 def _extract_meeting_params(text: str) -> dict:
-    title_match = re.search(
-        r"(?:about|regarding|titled?|called)\s+(.+?)(?:\s+(?:with|for|at|on|tomorrow|next|today)|\s*$)",
-        text, re.IGNORECASE,
-    )
-    title = title_match.group(1).strip().rstrip(".") if title_match else "Meeting"
+    from orchestrator.planner.meeting_parser import parse_meeting_request
+
+    parsed = parse_meeting_request(text)
     return {
-        "title": title,
-        "attendees": ["user@example.com"],
-        "date": "2026-07-25",
-        "time": "10:00",
-        "duration_minutes": 30,
+        "title": parsed.title,
+        "attendees": parsed.attendees or ["user@example.com"],
+        "start_at": parsed.start_at.isoformat() if parsed.start_at else None,
+        "end_at": parsed.end_at.isoformat() if parsed.end_at else None,
+        "duration_minutes": parsed.duration_minutes,
     }
 
 

@@ -159,19 +159,21 @@ class TestToolRegistry:
         registry = ToolRegistry()
         register_mock_tools(registry)
         tools = registry.list_tools()
-        assert len(tools) == 10
+        assert len(tools) == 12
         names = {t.name for t in tools}
         assert "calculator" in names
         assert "search_documents" in names
         assert "lookup_order" in names
         assert "search_pricing" in names
         assert "transfer_to_human" in names
+        assert "email_send" in names
+        assert "email_list" in names
 
     def test_get_tool_schemas(self):
         registry = ToolRegistry()
         register_mock_tools(registry)
         schemas = registry.get_tool_schemas()
-        assert len(schemas) == 10
+        assert len(schemas) == 12
         assert all("name" in s and "description" in s and "parameters" in s for s in schemas)
 
 

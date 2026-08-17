@@ -25,6 +25,7 @@ def build_orchestrator_graph(
     llm_provider: LLMProvider | None = None,
     checkpointer: BaseCheckpointSaver | None = None,
     approval_service=None,
+    memory_client=None,
 ) -> StateGraph:
     builder = StateGraph(AgentState)
 
@@ -33,7 +34,7 @@ def build_orchestrator_graph(
     builder.add_node("plan", create_plan_node(planner))
     builder.add_node("execute", create_execute_node(tool_registry, approval_service))
     builder.add_node("tool_invoke", create_tool_invoke_node(tool_registry))
-    builder.add_node("respond", create_respond_node(llm_provider))
+    builder.add_node("respond", create_respond_node(llm_provider, memory_client=memory_client))
 
     builder.add_edge(START, "receive")
     builder.add_edge("receive", "build_context")

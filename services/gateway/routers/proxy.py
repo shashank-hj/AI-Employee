@@ -14,12 +14,20 @@ SERVICE_MAP = {
     "speech": settings.SPEECH_URL,
 }
 
+_SERVICES_WITH_API_PREFIX = {"orchestrator", "tools", "rag", "workflow", "speech"}
+
 
 @router.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy_request(service: str, path: str, request: Request):
     if service not in SERVICE_MAP:
         raise HTTPException(status_code=404, detail=f"Unknown service: {service}")
-    target_url = f"{SERVICE_MAP[service]}/api/{path}"
+
+    base = SERVICE_MAP[service].rstrip("/")
+    if service in _SERVICES_WITH_API_PREFIX:
+        target_url = f"{base}/api/{path}"
+    else:
+        target_url = f"{base}/{path}"
+
     async with httpx.AsyncClient() as client:
         resp = await client.request(
             method=request.method, url=target_url,

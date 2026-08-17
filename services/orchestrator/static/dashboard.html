@@ -3,943 +3,1691 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Employee Platform — Dashboard</title>
+<title>AI Employee — Dashboard</title>
 <style>
-:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d2991d;--muted:#8b949e;--purple:#a371f7}
+:root {
+  --bg: #08080f; --sidebar-bg: #0e0e18; --surface: #141420;
+  --surface-hover: #1a1a2a; --border: #242436;
+  --text: #e2e2f0; --text-secondary: #8888a8; --text-muted: #5a5a78;
+  --accent: #6c5ce7; --accent-light: #a29bfe; --accent-glow: rgba(108,92,231,0.25);
+  --green: #00cec9; --green-bg: rgba(0,206,201,0.1); --green-border: rgba(0,206,201,0.3);
+  --red: #ff7675; --red-bg: rgba(255,118,117,0.1); --red-border: rgba(255,118,117,0.3);
+  --orange: #fdcb6e; --orange-bg: rgba(253,203,110,0.1); --orange-border: rgba(253,203,110,0.3);
+  --blue: #74b9ff; --blue-bg: rgba(116,185,255,0.1); --blue-border: rgba(116,185,255,0.3);
+  --purple: #a29bfe;
+  --radius: 10px; --radius-sm: 8px; --radius-lg: 14px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  font-size: 15px;
+}
+[data-theme="light"] {
+  --bg: #f5f5f7; --sidebar-bg: #ebebf0; --surface: #ffffff;
+  --surface-hover: #f0f0f5; --border: #e0e0e6;
+  --text: #1a1a2e; --text-secondary: #666680; --text-muted: #9999aa;
+  --accent: #6c5ce7; --accent-light: #4a3ac7; --accent-glow: rgba(108,92,231,0.12);
+  --green: #00a89c; --green-bg: rgba(0,168,156,0.08); --green-border: rgba(0,168,156,0.25);
+  --red: #e05555; --red-bg: rgba(224,85,85,0.08); --red-border: rgba(224,85,85,0.25);
+  --orange: #c89d3f; --orange-bg: rgba(200,157,63,0.08); --orange-border: rgba(200,157,63,0.25);
+  --blue: #4a90d9; --blue-bg: rgba(74,144,217,0.08); --blue-border: rgba(74,144,217,0.25);
+  --purple: #4a3ac7;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:2rem;max-width:1200px;margin:0 auto}
-h1{color:#fff;margin-bottom:0.5rem;font-size:1.5rem}
-h2{color:var(--muted);font-size:1rem;font-weight:400;margin-bottom:1.5rem}
-.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
-.badge{padding:4px 12px;border-radius:12px;font-size:.8rem;font-weight:600}
-.badge-pending{background:#1a2332;color:var(--accent)}
-.badge-progress{background:#2a1f1a;color:var(--orange)}
-.badge-resolved{background:#1a2a1a;color:var(--green)}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:.75rem}
-.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
-.card-header h3{font-size:1rem;color:#fff}
-.card-meta{font-size:.8rem;color:var(--muted);margin-bottom:.5rem}
-.card-meta span{margin-right:1rem}
-.card-body{font-size:.9rem;color:var(--text);margin-bottom:.75rem;line-height:1.5;white-space:pre-wrap;max-height:120px;overflow-y:auto}
-.card-actions{display:flex;gap:.5rem}
-.btn{padding:6px 16px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:.85rem;transition:.2s}
-.btn-claim{background:var(--accent);color:#fff;border-color:var(--accent)}
-.btn-claim:hover{opacity:.85}
-.btn-resolve{background:var(--green);color:#fff;border-color:var(--green)}
-.btn-resolve:hover{opacity:.85}
-.btn-claim:disabled,.btn-resolve:disabled{opacity:.3;cursor:not-allowed}
-.empty{text-align:center;padding:3rem;color:var(--muted)}
-.refresh{text-align:right;margin-bottom:1rem}
-.refresh button{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:.8rem}
-.refresh button:hover{color:var(--accent);border-color:var(--accent)}
+body{
+  font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);display:flex;min-height:100vh;
+}
 
-/* Voice Widget */
-.voice-card{margin-bottom:2rem}
-.voice-layout{display:flex;gap:1.5rem;align-items:flex-start}
-.voice-mic{flex-shrink:0}
-.voice-content{flex:1;min-width:0}
-.mic-btn{width:64px;height:64px;border-radius:50%;border:2px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;font-size:24px;position:relative}
-.mic-btn:hover{border-color:var(--accent);color:var(--accent)}
-.mic-btn.recording{background:var(--red);border-color:var(--red);color:#fff;animation:mic-pulse 1.5s ease-in-out infinite}
-.mic-btn.processing{background:var(--orange);border-color:var(--orange);color:#fff;cursor:wait}
-@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(248,81,73,.4)}50%{box-shadow:0 0 0 12px rgba(248,81,73,0)}}
-.voice-status{font-size:.85rem;color:var(--muted);margin-top:.5rem;text-align:center}
-.voice-transcript,.voice-response{margin-top:.75rem;padding:.75rem;border-radius:6px;font-size:.9rem;line-height:1.5;min-height:20px}
-.voice-transcript{background:#1a2332;border:1px solid #1f3a5f;color:var(--accent)}
-.voice-response{background:#1a2a1a;border:1px solid #1f4020;color:var(--green)}
-.voice-actions{margin-top:.5rem;display:flex;gap:.5rem}
-.btn-play{background:var(--purple);color:#fff;border-color:var(--purple)}
-.btn-play:hover{opacity:.85}
-.btn-play:disabled{opacity:.3;cursor:not-allowed}
-.divider{border:0;border-top:1px solid var(--border);margin:2rem 0}
-/* RAG Documents */
-.rag-upload-area{border:2px dashed var(--border);border-radius:8px;padding:1.5rem;text-align:center;margin-bottom:1rem;cursor:pointer;transition:.2s}
-.rag-upload-area:hover{border-color:var(--accent)}
-.rag-upload-area input{display:none}
-.rag-form{display:flex;gap:.5rem;margin-bottom:1rem}
-.rag-form input[type="text"]{flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)}
-.doc-table{width:100%;border-collapse:collapse;font-size:.85rem}
-.doc-table th{color:var(--accent);text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--border)}
-.doc-table td{padding:.4rem .5rem;border-bottom:1px solid var(--border);vertical-align:middle}
-.doc-status-ready{color:var(--green)}
-.doc-status-processing{color:var(--orange)}
-.doc-status-failed{color:var(--red)}
-.btn-sm{padding:3px 10px;font-size:.78rem;border-radius:4px}
+/* Sidebar */
+#sidebar{
+  width:220px;min-width:220px;background:var(--sidebar-bg);
+  border-right:1px solid var(--border);padding:24px 0;
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;
+  transition:transform 0.3s;
+}
+.side-logo{
+  padding:0 20px 20px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);margin-bottom:12px;
+}
+.side-logo-icon{
+  width:32px;height:32px;border-radius:var(--radius-sm);
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  box-shadow:0 0 16px var(--accent-glow);
+}
+.side-logo-text{font-weight:700;font-size:14px;line-height:1.2}
+.side-nav{flex:1;padding:8px 12px;display:flex;flex-direction:column;gap:2px}
+.side-nav a{
+  padding:10px 14px;border-radius:var(--radius-sm);color:var(--text-secondary);
+  text-decoration:none;font-size:13px;font-weight:500;
+  display:flex;align-items:center;gap:10px;transition:all 0.15s;cursor:pointer;
+}
+.side-nav a:hover{background:var(--surface-hover);color:var(--text)}
+.side-nav a.active{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.side-footer{padding:16px;margin:0 12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);text-align:center}
+
+/* Main */
+#main{flex:1;padding:28px 32px;overflow-y:auto;max-width:1300px}
+.page{display:none}
+.page.active{display:block}
+
+h1{font-size:22px;font-weight:700;margin-bottom:4px}
+h2{font-size:13px;color:var(--text-secondary);font-weight:400;margin-bottom:24px}
+
+/* KPIs */
+.kpi-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:14px;margin-bottom:24px;
+}
+.kpi-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;display:flex;gap:14px;align-items:flex-start;
+}
+.kpi-icon{
+  width:40px;height:40px;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;
+}
+.kpi-icon.green{background:var(--green-bg);color:var(--green)}
+.kpi-icon.blue{background:var(--blue-bg);color:var(--blue)}
+.kpi-icon.orange{background:var(--orange-bg);color:var(--orange)}
+.kpi-icon.red{background:var(--red-bg);color:var(--red)}
+.kpi-icon.purple{background:var(--accent-glow);color:var(--accent-light)}
+.kpi-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px}
+.kpi-value{font-size:22px;font-weight:700;margin-top:2px}
+.kpi-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+
+/* Cards */
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:20px;margin-bottom:16px;
+}
+.card-header{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;
+}
+.card-header h3{font-size:15px;font-weight:600}
+.card-header .badge{font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600}
+.badge-pending{background:var(--blue-bg);color:var(--blue)}
+.badge-progress{background:var(--orange-bg);color:var(--orange)}
+.badge-resolved{background:var(--green-bg);color:var(--green)}
+.badge-error{background:var(--red-bg);color:var(--red)}
+
+/* Buttons */
+.btn{
+  padding:8px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  cursor:pointer;font-size:12px;font-weight:600;transition:all 0.2s;
+  background:var(--surface);color:var(--text);
+}
+.btn:hover{border-color:var(--accent);color:var(--accent-light)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#7d6ff0;box-shadow:0 0 16px var(--accent-glow)}
+.btn-success{background:var(--green);color:#000;border-color:var(--green)}
+.btn-success:hover{opacity:0.85}
 .btn-danger{background:var(--red);color:#fff;border-color:var(--red)}
-.btn-danger:hover{opacity:.85}
-/* API Usage & Cost */
-.usage-kpi{text-align:center;padding:.75rem}
-.usage-kpi-label{font-size:.75rem;color:var(--muted)}
-.usage-kpi-value{font-size:1.25rem;font-weight:600;color:#fff;margin-top:.25rem}
-.usage-select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:.8rem}
-.usage-trend{display:flex;align-items:flex-end;gap:4px;height:120px;padding:.5rem 0}
-.usage-bar{width:80%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;transition:background .2s}
-.usage-bar:hover{background:var(--green)}
+.btn-danger:hover{opacity:0.85}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn:disabled{opacity:0.35;cursor:not-allowed;box-shadow:none}
+
+/* Chat Page */
+.chat-welcome{text-align:center;padding:60px 20px;color:var(--text-secondary)}
+.chat-welcome h2{color:var(--text);font-size:18px;margin-bottom:8px}
+.chat-msg{max-width:75%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;word-break:break-word}
+.chat-msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.chat-msg.assistant{align-self:flex-start;background:var(--surface-hover);border:1px solid var(--border);border-bottom-left-radius:4px}
+.chat-msg.error{align-self:flex-start;background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)}
+.chat-msg .chat-time{display:block;font-size:10px;margin-top:4px;opacity:0.6}
+.chat-typing{align-self:flex-start;padding:10px 16px;border-radius:12px;border-bottom-left-radius:4px;background:var(--surface-hover);border:1px solid var(--border);display:flex;gap:4px}
+.chat-typing .dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation:chat-blink 1.4s infinite}
+.chat-typing .dot:nth-child(2){animation-delay:0.2s}
+.chat-typing .dot:nth-child(3){animation-delay:0.4s}
+@keyframes chat-blink{0%,60%,100%{opacity:0.3;transform:scale(0.8)}30%{opacity:1;transform:scale(1.1)}}
+.chat-spk{cursor:pointer;font-size:14px;margin-left:6px;opacity:0.5;transition:opacity 0.2s;background:none;border:none;color:var(--text);padding:2px 4px;border-radius:4px}
+.chat-spk:hover{opacity:1;background:var(--surface-hover)}
+.chat-spk.playing{opacity:1;color:var(--accent-light)}
+.chat-mic{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
+.chat-mic:hover{border-color:var(--accent);color:var(--accent-light)}
+.chat-mic.recording{background:var(--red);border-color:var(--red);color:#fff;animation:mic-pulse-chat 1.5s infinite}
+.chat-mic.processing{background:var(--orange);border-color:var(--orange);color:#000;cursor:wait}
+@keyframes mic-pulse-chat{0%,100%{box-shadow:0 0 0 0 rgba(255,118,117,0.4)}50%{box-shadow:0 0 0 10px rgba(255,118,117,0)}}
+.chat-voice-mode{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer}
+
+/* Chat message polish + markdown */
+.chat-msg .md p{margin:4px 0}
+.chat-msg .md pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:6px;padding:10px 12px;overflow-x:auto;font-size:12px;margin:8px 0}
+.chat-msg .md code{background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:4px;font-size:12px}
+.chat-msg .md pre code{background:transparent;padding:0}
+.chat-msg .md ul,.chat-msg .md ol{margin:6px 0 6px 20px}
+.chat-msg .md h1,.chat-msg .md h2,.chat-msg .md h3{margin:8px 0 4px}
+.chat-msg .md a{color:var(--accent-light)}
+.chat-msg .md blockquote{border-left:3px solid var(--accent);padding-left:10px;margin:8px 0;color:var(--text-secondary)}
+.chat-msg .md table{border-collapse:collapse;margin:8px 0;font-size:13px}
+.chat-msg .md td,.chat-msg .md th{border:1px solid var(--border);padding:5px 9px}
+.chat-msg-actions{display:inline-flex;gap:4px;vertical-align:middle;margin-left:6px;opacity:0;transition:opacity .15s}
+.chat-msg:hover .chat-msg-actions{opacity:1}
+.chat-msg-actions button{
+  width:24px;height:24px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text-secondary);cursor:pointer;font-size:11px;
+  display:inline-flex;align-items:center;justify-content:center;transition:all .15s;padding:0;
+}
+.chat-msg-actions button:hover{border-color:var(--accent);color:var(--accent-light)}
+.chat-msg-actions button.playing{border-color:var(--accent);color:var(--accent-light);animation:chat-pulse 1s infinite}
+@keyframes chat-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+
+/* Voice settings popover (integrated into chat page) */
+.vs-wrap{position:relative}
+.vs-btn{
+  display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);
+  font-size:12px;cursor:pointer;transition:all .2s;
+}
+.vs-btn:hover{border-color:var(--accent);color:var(--accent-light)}
+.vs-btn .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
+.vs-panel{
+  position:absolute;top:calc(100% + 8px);right:0;width:320px;max-width:calc(100vw - 40px);
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:16px;display:none;flex-direction:column;gap:12px;z-index:50;
+  animation:vs-pop .18s ease-out;
+}
+.vs-panel.open{display:flex}
+@keyframes vs-pop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+.vs-title{font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.vs-section{display:flex;flex-direction:column;gap:6px}
+.vs-section-label{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-weight:600;margin-top:2px}
+.vs-field{display:flex;flex-direction:column;gap:4px}
+.vs-field label{font-size:11px;color:var(--text-secondary);font-weight:500}
+.vs-field select{
+  width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:12px;outline:none;transition:border-color .2s;
+}
+.vs-field select:focus{border-color:var(--accent)}
+.vs-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 2px}
+.vs-toggle span{font-size:12px}
+.vs-toggle small{display:block;font-size:10px;color:var(--text-muted)}
+.vs-hint{font-size:10px;color:var(--text-muted);line-height:1.5}
+.switch{position:relative;width:36px;height:20px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:20px;transition:.2s}
+.switch .slider:before{content:"";position:absolute;height:14px;width:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:var(--accent)}
+.switch input:checked + .slider:before{transform:translateX(16px)}
+.vs-actions{display:flex;gap:8px}
+.vs-actions button{
+  flex:1;padding:9px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;transition:all .2s;
+}
+.vs-actions button:hover{border-color:var(--accent);color:var(--accent-light)}
+.vs-actions button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.vs-actions button.primary:hover{background:#7d6ff0}
+.vs-icon-btn{
+  width:26px;height:26px;border-radius:6px;border:1px solid var(--border);
+  background:transparent;color:var(--text-secondary);cursor:pointer;font-size:13px;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;padding:0;
+}
+.vs-icon-btn:hover{border-color:var(--accent);color:var(--accent-light)}
+
+/* Task cards */
+.task-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;margin-bottom:10px;
+}
+.task-header{display:flex;justify-content:space-between;margin-bottom:8px}
+.task-title{font-size:14px;font-weight:600}
+.task-meta{font-size:11px;color:var(--text-muted);margin-bottom:8px;display:flex;gap:16px}
+.task-body{font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:12px;max-height:80px;overflow-y:auto}
+.task-actions{display:flex;gap:8px}
+
+/* Tables */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;color:var(--accent-light);font-weight:600;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:var(--surface-hover)}
+
+/* Voice */
+.mic-layout{display:flex;gap:16px;align-items:flex-start}
+.mic-area{flex-shrink:0;display:flex;flex-direction:column;align-items:center}
+.mic-btn{
+  width:60px;height:60px;border-radius:50%;border:2px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  transition:all 0.2s;
+}
+.mic-btn:hover{border-color:var(--accent);color:var(--accent-light)}
+.mic-btn.recording{background:var(--red);border-color:var(--red);color:#fff;animation:mic-pulse 1.5s infinite}
+.mic-btn.processing{background:var(--orange);border-color:var(--orange);color:#000;cursor:wait}
+@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,118,117,0.4)}50%{box-shadow:0 0 0 14px rgba(255,118,117,0)}}
+.mic-status{font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center}
+.voice-content{flex:1;min-width:0}
+.voice-box{padding:12px;border-radius:var(--radius-sm);font-size:13px;line-height:1.5;min-height:20px;margin-top:8px}
+.voice-transcript{background:var(--blue-bg);border:1px solid var(--blue-border);color:var(--blue)}
+.voice-response{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green)}
+
+/* RAG */
+.rag-upload{
+  border:2px dashed var(--border);border-radius:var(--radius);padding:20px;
+  text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:12px;
+}
+.rag-upload:hover{border-color:var(--accent);color:var(--accent-light)}
+.rag-upload input{display:none}
+
+/* Forms */
+input[type="text"],textarea,select{
+  padding:8px 12px;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);font-size:13px;
+  font-family:inherit;outline:none;transition:border-color 0.2s;
+}
+input[type="text"]:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:vertical}
+
+.flex-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.flex-1{flex:1}
+.mb{margin-bottom:12px}
+.mt{margin-top:12px}
+.text-muted{color:var(--text-muted)}
+.text-green{color:var(--green)}
+.text-red{color:var(--red)}
+.text-orange{color:var(--orange)}
+.text-blue{color:var(--blue)}
+.text-sm{font-size:12px}
+.text-xs{font-size:11px}
+
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+
+/* Cost trend chart */
+.cost-chart{display:grid;grid-template-columns:58px 1fr;grid-template-rows:210px auto;column-gap:8px;margin-top:8px}
+.cost-yaxis{position:relative;grid-column:1;grid-row:1}
+.cost-yaxis span{position:absolute;right:6px;font-size:10px;color:var(--text-muted);transform:translateY(-50%)}
+.cost-plot{position:relative;grid-column:2;grid-row:1}
+.cost-gridlines{position:absolute;inset:0;pointer-events:none}
+.cost-gridlines div{position:absolute;left:0;right:0;border-top:1px dashed var(--border);opacity:.7}
+.cost-bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:8px}
+.cost-col{flex:1;position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center;min-width:0}
+.cost-bar{width:62%;max-width:44px;background:linear-gradient(180deg,var(--accent),var(--accent-soft,var(--accent)));border-radius:4px 4px 0 0;min-height:2px;cursor:pointer;transition:filter .15s;position:relative}
+.cost-bar:hover{filter:brightness(1.2)}
+.cost-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:5px 8px;border-radius:6px;font-size:10px;line-height:1.4;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:5}
+.cost-bar:hover .cost-tip,.cost-col:hover .cost-tip{opacity:1}
+.cost-xaxis{grid-column:2;grid-row:2;display:flex;gap:8px;margin-top:6px}
+.cost-xaxis span{flex:1;text-align:center;font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cost-empty{grid-column:1/3;padding:1.5rem;text-align:center;color:var(--text-muted)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+
+@media(max-width:768px){
+  body{flex-direction:column}
+  #sidebar{width:100%;min-width:100%;height:auto;position:relative;flex-direction:row;padding:12px;overflow-x:auto}
+  .side-nav{flex-direction:row;padding:0;gap:4px}
+  .side-nav a{padding:8px 12px;font-size:11px}
+  .side-logo,.side-footer{display:none}
+  #main{padding:16px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
 </style>
 </head>
 <body>
 
-<h1>AI Employee Platform</h1>
-<h2>Voice Assistant & HITL Dashboard</h2>
+<aside id="sidebar">
+  <div class="side-logo">
+    <div class="side-logo-icon">&#9889;</div>
+    <div class="side-logo-text">AI Employee<br><span style="font-size:10px;color:var(--text-muted);font-weight:400">Dashboard</span></div>
+    <button onclick="toggleTheme()" title="Toggle theme" style="margin-left:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;" id="theme-toggle">&#9728;</button>
+  </div>
+  <nav class="side-nav">
+    <a onclick="showPage('chat')" data-page="chat"><span class="nav-icon">&#128172;</span> Chat</a>
+    <a onclick="showPage('overview')" class="active" data-page="overview"><span class="nav-icon">&#127968;</span> Overview</a>
+    <a onclick="showPage('hitl')" data-page="hitl"><span class="nav-icon">&#128101;</span> HITL Tasks</a>
+    <a onclick="showPage('voice')" data-page="voice"><span class="nav-icon">&#127908;</span> Voice</a>
+    <a onclick="showPage('memory')" data-page="memory"><span class="nav-icon">&#128190;</span> Memory</a>
+    <a onclick="showPage('rag')" data-page="rag"><span class="nav-icon">&#128196;</span> Documents</a>
+    <a onclick="showPage('usage')" data-page="usage"><span class="nav-icon">&#128200;</span> Usage &amp; Cost</a>
+    <a onclick="showPage('channels')" data-page="channels"><span class="nav-icon">&#128279;</span> Channels</a>
+    <a onclick="showPage('tools')" data-page="tools"><span class="nav-icon">&#128736;</span> Tools</a>
+    <a onclick="showPage('gmail')" data-page="gmail"><span class="nav-icon">&#128231;</span> Email</a>
+    <a onclick="showPage('calendar')" data-page="calendar"><span class="nav-icon">&#128197;</span> Calendar</a>
+  </nav>
+  <div class="side-footer">v0.1.0 &middot; All systems</div>
+</aside>
 
-<!-- Voice Widget -->
-<div class="card voice-card">
-  <div class="card-header"><h3>Voice Assistant</h3></div>
-  <div class="voice-layout">
-    <div class="voice-mic">
-      <button class="mic-btn" id="micBtn" onclick="toggleRecording()" title="Click to record">
-        &#x1F3A4;
-      </button>
-      <div class="voice-status" id="voiceStatus">Click mic to speak</div>
+<main id="main">
+
+<!-- ======== CHAT PAGE ======== -->
+<div class="page" id="page-chat">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div><h1>AI Employee Chat</h1><h2>Conversation with voice + session memory</h2></div>
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div class="vs-wrap">
+        <button class="vs-btn" onclick="toggleVoiceSettings()">
+          <span class="dot" id="vs-ready-dot"></span>
+          <span id="vs-summary">Voice</span>
+          <span>&#9662;</span>
+        </button>
+        <div class="vs-panel" id="vs-panel">
+          <div class="vs-title">
+            <span>&#127908; Voice Settings</span>
+            <button class="vs-icon-btn" onclick="toggleVoiceSettings()" title="Close">&#10005;</button>
+          </div>
+          <div class="vs-section">
+            <div class="vs-section-label">Voice output (TTS)</div>
+            <div class="vs-field">
+              <label for="vs-tts-model">TTS Model</label>
+              <select id="vs-tts-model" onchange="onTtsModelChange()"></select>
+            </div>
+            <div class="vs-field">
+              <label for="vs-speaker">Speaker / Voice</label>
+              <select id="vs-speaker"></select>
+            </div>
+            <div class="vs-field">
+              <label for="vs-tts-lang">Language</label>
+              <select id="vs-tts-lang"></select>
+            </div>
+            <div class="vs-toggle">
+              <div>
+                <span>Auto-speak replies</span>
+                <small>Read the assistant's reply aloud</small>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="vs-autospeak" onchange="saveVoiceSettings()">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="vs-actions" style="margin-top:4px">
+              <button type="button" onclick="testVoice()">Test voice</button>
+            </div>
+          </div>
+          <div class="vs-section" style="border-top:1px solid var(--border);padding-top:10px">
+            <div class="vs-section-label">Voice input (STT)</div>
+            <div class="vs-field">
+              <label for="vs-stt-model">STT Model</label>
+              <select id="vs-stt-model"></select>
+            </div>
+            <div class="vs-field">
+              <label for="vs-stt-mode">Mode</label>
+              <select id="vs-stt-mode"></select>
+            </div>
+            <div class="vs-field">
+              <label for="vs-stt-lang">Input language</label>
+              <select id="vs-stt-lang"></select>
+            </div>
+          </div>
+          <p class="vs-hint">
+            Tap the mic in the message box, speak, and the assistant will reply
+            in the selected speaker's voice. Selections are saved automatically.
+          </p>
+        </div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="clearChat()" style="margin-top:0">&#10005; Clear Chat</button>
     </div>
-    <div class="voice-content">
-      <div class="voice-transcript" id="voiceTranscript"></div>
-      <div class="voice-response" id="voiceResponse"></div>
-      <div class="voice-actions" id="voiceActions" style="display:none">
-        <button class="btn btn-play" id="btnPlay" onclick="playResponseAudio()" disabled>Play Response</button>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;height:calc(100vh - 160px);padding:0;overflow:hidden">
+    <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div class="chat-welcome">
+        <h2>Hello! I'm your AI Employee</h2>
+        <p>Ask me anything — product info, orders, pricing, weather, scheduling, or even send emails</p>
+      </div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);background:var(--surface)">
+      <form id="chat-form" style="display:flex;gap:10px;align-items:flex-end">
+        <button type="button" class="chat-mic" id="chat-mic" onclick="toggleChatMic()" title="Click to record voice">&#127908;</button>
+        <button type="button" class="btn btn-danger btn-sm" id="chat-mic-stop" onclick="cancelChatMic()" style="display:none">Stop</button>
+        <textarea id="chat-input" placeholder="Type a message... (Enter to send, Shift+Enter for new line)" rows="1" style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-family:inherit;resize:none;outline:none;max-height:100px" onkeydown="chatInputKey(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+        <button id="chat-send" class="btn btn-primary" type="submit">Send</button>
+      </form>
+      <div id="chat-status" class="text-xs text-muted" style="margin-top:6px"></div>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:16px">
+        <label class="chat-voice-mode" title="Auto-listen mode: AI responds, then mic auto-activates for next message">
+          <input type="checkbox" id="chat-auto-mode" onchange="toggleAutoMode()"> Hands-free mode
+        </label>
+        <button type="button" class="btn btn-sm" onclick="speakLast()" id="chat-speak-last" style="display:none">&#9654; Read last</button>
+        <button type="button" class="btn btn-sm" onclick="toggleTtsPause()" id="chat-tts-pause" style="display:none">&#10074;&#10074; Pause</button>
       </div>
     </div>
   </div>
 </div>
 
-<hr class="divider">
+<!-- ======== OVERVIEW PAGE ======== -->
+<div class="page active" id="page-overview">
+  <h1>Overview</h1>
+  <h2>Real-time system health and key metrics</h2>
+  <div class="kpi-grid" id="overview-kpis">
+    <div class="kpi-card"><div class="kpi-icon green">&#9989;</div><div><div class="kpi-label">Orchestrator</div><div class="kpi-value" id="kpi-orch">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon blue">&#128190;</div><div><div class="kpi-label">Memory Service</div><div class="kpi-value" id="kpi-memory">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon orange">&#128196;</div><div><div class="kpi-label">RAG Service</div><div class="kpi-value" id="kpi-rag">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon purple">&#127908;</div><div><div class="kpi-label">Speech Service</div><div class="kpi-value" id="kpi-speech">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green">&#128279;</div><div><div class="kpi-label">Gateway</div><div class="kpi-value" id="kpi-gateway">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon blue">&#128101;</div><div><div class="kpi-label">Pending Tasks</div><div class="kpi-value" id="kpi-hitl">—</div></div></div>
+  </div>
 
-<!-- Voice Tools -->
-<div class="card voice-card">
-  <div class="card-header"><h3>Voice Tools</h3></div>
-  <div class="voice-layout">
-    <div class="voice-mic">
-      <button class="mic-btn" id="toolMicBtn" onclick="toggleToolRecording()" title="Record for speech-to-text">
-        &#x1F3A4;
-      </button>
-      <div class="voice-status" id="toolMicStatus">Click mic to record audio</div>
-    </div>
-    <div class="voice-content">
-      <div class="voice-transcript" id="toolTranscript"></div>
-      <div class="voice-actions" style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0">
-        <button class="btn btn-play" onclick="runTool('detect')">Detect Language</button>
-        <button class="btn btn-play" onclick="runTool('translate')">Translate</button>
-        <button class="btn btn-play" onclick="runTool('transliterate')">Transliterate</button>
-        <button class="btn btn-play" onclick="runTool('stt-translate')">Speech-to-Text Translate</button>
+  <div class="card">
+    <div class="card-header"><h3>Recent Activity</h3><button class="btn btn-sm" onclick="loadOverview()">Refresh</button></div>
+    <div id="overview-activity" class="text-muted">Loading...</div>
+  </div>
+</div>
+
+<!-- ======== HITL PAGE ======== -->
+<div class="page" id="page-hitl">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+    <div><h1>HITL Dashboard</h1><h2>Human-in-the-loop task management</h2></div>
+    <span class="badge badge-pending" id="count-badge" style="align-self:center">0 pending</span>
+  </div>
+  <div class="mb"><button class="btn btn-sm" onclick="loadTasks()">Refresh</button></div>
+  <div id="task-list"><div class="text-muted" style="padding:2rem;text-align:center">Loading tasks...</div></div>
+</div>
+
+<!-- ======== VOICE PAGE ======== -->
+<div class="page" id="page-voice">
+  <h1>Voice Assistant</h1>
+  <h2>Speech-to-text, text-to-speech, and voice tools</h2>
+
+  <div class="card">
+    <div class="card-header"><h3>Voice Assistant</h3></div>
+    <div class="mic-layout">
+      <div class="mic-area">
+        <button class="mic-btn" id="micBtn" onclick="toggleRecording()" title="Start recording">&#127897;</button>
+        <div class="mic-status" id="voiceStatus">Click mic to speak</div>
+        <button class="btn btn-danger btn-sm" id="voiceStopBtn" onclick="cancelRecording()" style="display:none;margin-top:8px">Stop Recording</button>
       </div>
-      <div class="voice-response" id="toolResponse"></div>
+      <div class="voice-content">
+        <div class="voice-box voice-transcript" id="voiceTranscript"></div>
+        <div class="voice-box voice-response" id="voiceResponse"></div>
+        <div class="mt" id="voiceActions" style="display:none">
+          <button class="btn btn-primary btn-sm" id="btnPlay" onclick="playResponseAudio()" disabled>Play Response</button>
+          <button class="btn btn-sm" id="voice-tts-pause" onclick="toggleTtsPause()" style="display:none">&#10074;&#10074; Pause</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt">
+    <div class="card-header"><h3>Voice Tools</h3></div>
+    <div class="mic-layout">
+      <div class="mic-area">
+        <button class="mic-btn" id="toolMicBtn" onclick="toggleToolRecording()" title="Start recording">&#127897;</button>
+        <div class="mic-status" id="toolMicStatus">Record audio first</div>
+        <button class="btn btn-danger btn-sm" id="toolStopBtn" onclick="cancelToolRecording()" style="display:none;margin-top:8px">Stop Recording</button>
+      </div>
+      <div class="voice-content">
+        <div class="voice-box voice-transcript" id="toolTranscript"></div>
+        <div class="flex-row mt">
+          <button class="btn btn-sm" onclick="runTool('detect')">Detect Language</button>
+          <button class="btn btn-sm" onclick="runTool('translate')">Translate</button>
+          <button class="btn btn-sm" onclick="runTool('transliterate')">Transliterate</button>
+          <button class="btn btn-sm" onclick="runTool('stt-translate')">STT Translate</button>
+        </div>
+        <div class="voice-box voice-response mt" id="toolResponse"></div>
+      </div>
     </div>
   </div>
 </div>
 
-<hr class="divider">
+<!-- ======== MEMORY PAGE ======== -->
+<div class="page" id="page-memory">
+  <h1>Memory Service</h1>
+  <h2>Session memory, long-term storage, and semantic search</h2>
 
-<!-- Document Management (RAG) -->
-<div class="card voice-card">
-  <div class="card-header"><h3>&#x1F4C4; Document Management (RAG)</h3></div>
-
-    <div class="rag-upload-area" id="ragDropZone" onclick="document.getElementById('ragFileInput').click()">
-    <div id="ragDropText">Drop a .txt, .pdf, or .md file here, or click to browse</div>
-    <input type="file" id="ragFileInput" accept=".txt,.md,.csv,.json,.html,.xml,.pdf" onchange="uploadRagFile(this)">
+  <div class="kpi-grid" id="memory-kpis">
+    <div class="kpi-card"><div class="kpi-icon blue">&#128172;</div><div><div class="kpi-label">Sessions</div><div class="kpi-value" id="kpi-sessions">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon purple">&#128218;</div><div><div class="kpi-label">Long-Term Memories</div><div class="kpi-value" id="kpi-lt-memories">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green">&#128100;</div><div><div class="kpi-label">User Profiles</div><div class="kpi-value" id="kpi-profiles">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon orange">&#128269;</div><div><div class="kpi-label">Search Queries</div><div class="kpi-value" id="kpi-searches">—</div></div></div>
   </div>
 
-  <div class="rag-form">
-    <input type="text" id="ragTitle" placeholder="Document title...">
-    <button class="btn btn-claim btn-sm" onclick="publishRagText()">Publish Text</button>
-    <button class="btn btn-sm" onclick="listRagDocs()">Refresh</button>
-  </div>
-  <textarea id="ragContent" placeholder="Or paste text content here..." style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px;font-family:monospace;font-size:.85rem;resize:vertical;margin-bottom:.5rem"></textarea>
-
-  <div id="ragStatus" style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem"></div>
-  <div id="ragDocList" style="max-height:300px;overflow-y:auto"></div>
-
-  <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border)">
-    <div style="display:flex;gap:.5rem">
-      <input type="text" id="ragQuery" placeholder="Ask a question about your documents..." style="flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text)">
-      <button class="btn btn-claim btn-sm" onclick="askRagQuestion()">Ask</button>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><h3>Recent Sessions</h3><button class="btn btn-sm" onclick="loadMemoryStats()">Refresh</button></div>
+      <div id="memory-sessions-list"><div class="text-muted">Loading...</div></div>
     </div>
-    <div id="ragAnswer" style="margin-top:.5rem;font-size:.9rem;line-height:1.5;max-height:250px;overflow-y:auto"></div>
+    <div class="card">
+      <div class="card-header"><h3>Search Memories</h3></div>
+      <div class="flex-row mb">
+        <input type="text" id="memory-search-query" placeholder="Search long-term memories..." class="flex-1">
+        <button class="btn btn-primary btn-sm" onclick="searchMemories()">Search</button>
+      </div>
+      <div id="memory-search-results"><div class="text-muted">Enter a query to search</div></div>
+    </div>
   </div>
 </div>
 
-<hr class="divider">
+<!-- ======== RAG PAGE ======== -->
+<div class="page" id="page-rag">
+  <h1>Document Management (RAG)</h1>
+  <h2>Upload, index, and query documents</h2>
 
-<!-- HITL Tasks -->
-<div class="header">
-  <h1 style="margin-bottom:0">HITL Dashboard</h1>
-  <span class="badge badge-pending" id="count-badge">0 pending</span>
-</div>
-<div class="refresh">
-  <button onclick="loadTasks()">Refresh</button>
-</div>
-<div id="task-list"><div class="empty">Loading tasks...</div></div>
+  <div class="card">
+    <div class="rag-upload" id="ragDropZone" onclick="document.getElementById('ragFileInput').click()">
+      <div id="ragDropText">&#128229; Drop a .txt, .pdf, or .md file here, or click to browse</div>
+      <input type="file" id="ragFileInput" accept=".txt,.md,.csv,.json,.html,.xml,.pdf" onchange="uploadRagFile(this)">
+    </div>
 
-<hr class="divider">
+    <div class="flex-row mb">
+      <input type="text" id="ragTitle" placeholder="Document title..." class="flex-1">
+      <button class="btn btn-primary btn-sm" onclick="publishRagText()">Publish Text</button>
+      <button class="btn btn-sm" onclick="listRagDocs()">Refresh</button>
+    </div>
+    <textarea id="ragContent" placeholder="Or paste text content here..." style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:10px;font-family:monospace;font-size:12px;resize:vertical;margin-bottom:10px"></textarea>
+    <div id="ragStatus" class="text-sm text-muted mb"></div>
+    <div id="ragDocList"></div>
 
-<!-- API Usage & Cost -->
-<div class="header">
-  <h1 style="margin-bottom:0">API Usage & Cost</h1>
-  <div style="display:flex;gap:.5rem;align-items:center">
-    <select id="usageRange" class="usage-select" onchange="loadUsage()">
-      <option value="24h">Last 24 hours</option>
-      <option value="7d" selected>Last 7 days</option>
-      <option value="30d">Last 30 days</option>
-      <option value="all">All time</option>
-    </select>
-    <span class="badge badge-pending" id="usageCallsBadge">0 calls</span>
+    <div class="mt" style="padding-top:14px;border-top:1px solid var(--border)">
+      <div class="flex-row mb">
+        <input type="text" id="ragQuery" placeholder="Ask a question about your documents..." class="flex-1">
+        <button class="btn btn-primary btn-sm" onclick="askRagQuestion()">Ask</button>
+      </div>
+      <div id="ragAnswer" class="text-sm" style="line-height:1.6"></div>
+    </div>
   </div>
 </div>
-<div class="refresh">
-  <button onclick="loadUsage()">Refresh</button>
+
+<!-- ======== USAGE PAGE ======== -->
+<div class="page" id="page-usage">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+    <div><h1>API Usage &amp; Cost</h1><h2>Track LLM token usage and cost in INR</h2></div>
+    <div class="flex-row">
+      <select id="usageRange" onchange="loadUsage()">
+        <option value="24h">Last 24h</option>
+        <option value="7d" selected>Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="all">All time</option>
+      </select>
+      <span class="badge badge-pending" id="usageCallsBadge">0 calls</span>
+    </div>
+  </div>
+  <div class="mb"><button class="btn btn-sm" onclick="loadUsage()">Refresh</button></div>
+  <div id="usageKpis" class="kpi-grid"></div>
+
+  <div class="card">
+    <div class="card-header"><h3>Cost Trend</h3><span class="text-sm text-muted">INR per period</span></div>
+    <div id="usageTrend"><div class="text-muted" style="padding:1rem">Loading...</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><h3>By Model</h3></div><div id="usageByModel"></div></div>
+    <div class="card"><div class="card-header"><h3>By Operation</h3></div><div id="usageByOperation"></div></div>
+  </div>
+
+  <div class="card mt">
+    <div class="card-header"><h3>Recent Calls</h3></div>
+    <div id="usageEvents" style="max-height:400px;overflow-y:auto"></div>
+  </div>
 </div>
 
-<div id="usageKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin-bottom:1rem"></div>
-
-<div class="card">
-  <div class="card-header"><h3>Cost trend</h3><span style="font-size:.75rem;color:var(--muted)">INR per period</span></div>
-  <div class="usage-trend" id="usageTrend"></div>
-</div>
-
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem">
-  <div class="card"><div class="card-header"><h3>By model</h3></div><div id="usageByModel"></div></div>
-  <div class="card"><div class="card-header"><h3>By operation</h3></div><div id="usageByOperation"></div></div>
-</div>
-
-<div class="card" style="margin-top:1rem">
-  <div class="card-header"><h3>Recent calls</h3></div>
-  <div id="usageEvents" style="max-height:360px;overflow-y:auto"></div>
-</div>
-
-<hr class="divider">
-
-<!-- Channels & Guardrails -->
-<div class="header">
-  <h1 style="margin-bottom:0">Channels &amp; Guardrails</h1>
-  <div style="display:flex;gap:.5rem;align-items:center">
-    <select id="channelRange" class="usage-select" onchange="loadChannelStats()">
-      <option value="24h" selected>Last 24 hours</option>
+<!-- ======== CHANNELS PAGE ======== -->
+<div class="page" id="page-channels">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+    <div><h1>Channels &amp; Guardrails</h1><h2>Inbound message traffic and security</h2></div>
+    <select id="channelRange" onchange="loadChannelStats()">
+      <option value="24h" selected>Last 24h</option>
       <option value="7d">Last 7 days</option>
       <option value="30d">Last 30 days</option>
       <option value="all">All time</option>
     </select>
   </div>
-</div>
-<div class="refresh">
-  <button onclick="loadChannelStats()">Refresh</button>
-</div>
-
-<div id="channelKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin-bottom:1rem"></div>
-
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem">
-  <div class="card"><div class="card-header"><h3>By channel</h3></div><div id="channelByChannel"></div></div>
-  <div class="card"><div class="card-header"><h3>Recent events</h3></div><div id="channelEvents" style="max-height:360px;overflow-y:auto"></div></div>
+  <div class="mb"><button class="btn btn-sm" onclick="loadChannelStats()">Refresh</button></div>
+  <div id="channelKpis" class="kpi-grid"></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><h3>By Channel</h3></div><div id="channelByChannel"></div></div>
+    <div class="card"><div class="card-header"><h3>Recent Events</h3></div><div id="channelEvents" style="max-height:400px;overflow-y:auto"></div></div>
+  </div>
 </div>
 
-<script>
-const SPEECH_URL = 'http://localhost:8006';
-const ORCHESTRATOR_URL = 'http://localhost:8001';
-const GATEWAY_URL = 'http://localhost:8000';
-const HITL_API = '/api/human-tasks';
+<!-- ======== TOOLS PAGE ======== -->
+<div class="page" id="page-tools">
+  <h1>Tool Registry</h1>
+  <h2>Available tools in the orchestrator</h2>
+  <div class="card">
+    <div id="tools-list"><div class="text-muted" style="padding:2rem;text-align:center">Loading tools...</div></div>
+  </div>
+</div>
 
-// ── HITL Tasks (existing) ──
+<!-- ======== GMAIL PAGE ======== -->
+<div class="page" id="page-gmail">
+  <h1>Email Integration</h1>
+  <h2>Send and receive emails via SMTP + IMAP</h2>
+  <div class="kpi-grid" id="gmail-kpis">
+    <div class="kpi-card"><div class="kpi-icon blue">&#128231;</div><div><div class="kpi-label">Account</div><div class="kpi-value" id="kpi-gmail-email">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon purple">&#128230;</div><div><div class="kpi-label">Total Messages</div><div class="kpi-value" id="kpi-gmail-total">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green">&#9989;</div><div><div class="kpi-label">Integration Status</div><div class="kpi-value" id="kpi-gmail-status">—</div></div></div>
+  </div>
 
-async function loadTasks() {
-  try {
-    const [tasksRes, countRes] = await Promise.all([
-      fetch(HITL_API), fetch(HITL_API + '/count')
-    ]);
-    const tasks = await tasksRes.json();
-    const { pending } = await countRes.json();
-    document.getElementById('count-badge').textContent = pending + ' pending';
-    renderTasks(tasks);
-  } catch (e) {
-    document.getElementById('task-list').innerHTML = '<div class="empty">Error loading tasks</div>';
-  }
-}
-
-function renderTasks(tasks) {
-  if (!tasks.length) {
-    document.getElementById('task-list').innerHTML = '<div class="empty">No pending tasks</div>';
-    return;
-  }
-  document.getElementById('task-list').innerHTML = tasks.map(t => `
-    <div class="card" id="task-${t.id}">
-      <div class="card-header">
-        <h3>${escapeHtml(t.intent.toUpperCase())} — ${escapeHtml(t.user_input.substring(0, 60))}${t.user_input.length > 60 ? '...' : ''}</h3>
-        <span class="badge ${t.status === 'pending' ? 'badge-pending' : 'badge-progress'}">${t.status}</span>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><h3>Inbox</h3>
+        <div class="flex-row">
+          <input type="text" id="gmail-search" placeholder="Search emails..." style="width:160px" onkeydown="if(event.key==='Enter')loadGmailInbox()">
+          <button class="btn btn-sm" onclick="loadGmailInbox()">Search</button>
+          <button class="btn btn-sm" onclick="loadGmailInbox()">Refresh</button>
+        </div>
       </div>
-      <div class="card-meta">
-        <span>ID: ${t.id.substring(0, 8)}</span>
-        <span>Priority: ${t.priority}</span>
-        <span>Created: ${new Date(t.created_at).toLocaleString()}</span>
+      <div id="gmail-inbox" style="max-height:500px;overflow-y:auto"><div class="text-muted" style="padding:2rem;text-align:center">Gmail not configured or loading...</div></div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-header"><h3>Compose</h3></div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <input type="text" id="gmail-to" placeholder="To: recipient@example.com">
+          <input type="text" id="gmail-cc" placeholder="Cc: (optional)">
+          <input type="text" id="gmail-subject" placeholder="Subject">
+          <textarea id="gmail-body" placeholder="Email body..." style="min-height:120px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:10px;font-family:inherit;font-size:13px;resize:vertical;outline:none"></textarea>
+          <button class="btn btn-primary" onclick="sendGmail()">Send Email</button>
+        </div>
+        <div id="gmail-send-status" class="mt text-sm"></div>
       </div>
-      <div class="card-body">${escapeHtml(t.reason || 'No reason provided')}</div>
-      <div class="card-actions">
-        <button class="btn btn-claim" onclick="claimTask('${t.id}')">Claim</button>
-        <button class="btn btn-resolve" onclick="resolveTask('${t.id}')">Resolve</button>
+      <div class="card mt">
+        <div class="card-header"><h3>Email Preview</h3></div>
+        <div id="gmail-preview"><div class="text-muted">Select an email from inbox to preview</div></div>
       </div>
     </div>
-  `).join('');
+  </div>
+</div>
+
+<!-- ======== CALENDAR PAGE ======== -->
+<div class="page" id="page-calendar">
+  <h1>Calendar Integration</h1>
+  <h2>Schedule, list, reschedule and cancel meetings</h2>
+  <div class="kpi-grid" id="calendar-kpis">
+    <div class="kpi-card"><div class="kpi-icon purple">&#128197;</div><div><div class="kpi-label">Provider</div><div class="kpi-value" id="kpi-cal-provider">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green">&#128230;</div><div><div class="kpi-label">Upcoming Events</div><div class="kpi-value" id="kpi-cal-total">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon blue">&#9989;</div><div><div class="kpi-label">Integration Status</div><div class="kpi-value" id="kpi-cal-status">—</div></div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><h3>Upcoming Meetings</h3>
+        <div class="flex-row">
+          <button class="btn btn-sm" onclick="loadCalendar()">Refresh</button>
+        </div>
+      </div>
+      <div id="calendar-list" style="max-height:500px;overflow-y:auto"><div class="text-muted" style="padding:2rem;text-align:center">Calendar not configured or loading...</div></div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-header"><h3>Create Meeting</h3></div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <input type="text" id="cal-title" placeholder="Title">
+          <input type="datetime-local" id="cal-start" placeholder="Start (YYYY-MM-DDTHH:MM)">
+          <input type="datetime-local" id="cal-end" placeholder="End (optional)">
+          <input type="text" id="cal-attendees" placeholder="Attendees (comma separated emails, optional)">
+          <button class="btn btn-primary" onclick="createCalendarEvent()">Create Meeting</button>
+        </div>
+        <div id="cal-create-status" class="mt text-sm"></div>
+      </div>
+      <div class="card mt">
+        <div class="card-header"><h3>Meeting Details</h3></div>
+        <div id="cal-detail"><div class="text-muted">Select a meeting from the list to view details</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- SCRIPTS -->
+<script>
+const SPEECH_URL='http://localhost:8006';
+const ORCH_URL='http://localhost:8001';
+const GW_URL='http://localhost:8000';
+const MEM_URL='http://localhost:8003';
+const RAG_URL='http://localhost:8004';
+const HITL_API='/api/human-tasks';
+
+function $(id){return document.getElementById(id)}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function escAttr(s){return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function fmtInr(v){return '₹'+Number(v||0).toFixed(4)}
+function fmtNum(v){return Number(v||0).toLocaleString()}
+
+// Page navigation
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  var pg=$('page-'+name);
+  if(pg)pg.classList.add('active');
+  document.querySelectorAll('.side-nav a').forEach(a=>a.classList.remove('active'));
+  var link=document.querySelector('[data-page="'+name+'"]');
+  if(link)link.classList.add('active');
+  sessionStorage.setItem('dashboard_page',name);
+  if(name==='memory')loadMemoryStats();
+  if(name==='hitl')loadTasks();
+  if(name==='overview')loadOverview();
+  if(name==='rag')listRagDocs();
+  if(name==='usage')loadUsage();
+  if(name==='channels')loadChannelStats();
+  if(name==='tools')loadTools();
+  if(name==='gmail')loadGmailInbox();
+  if(name==='calendar')loadCalendar();
+  if(name==='chat')loadChatHistory();
 }
 
-async function claimTask(id) {
-  const btn = document.querySelector(`#task-${id} .btn-claim`);
-  btn.disabled = true;
-  btn.textContent = '...';
-  try {
-    await fetch(`${HITL_API}/${id}/claim`, { method: 'POST' });
-    loadTasks();
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = 'Claim';
-  }
+// Restore last page
+(function(){
+  var last=sessionStorage.getItem('dashboard_page')||'overview';
+  showPage(last);
+})();
+
+// ── CHAT ──
+var chatSessionId=localStorage.getItem('ai_employee_dash_session')||('dash-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+localStorage.setItem('ai_employee_dash_session',chatSessionId);
+var chatUserId=localStorage.getItem('ai_employee_dash_user')||('dash-user-'+Date.now().toString(36));
+localStorage.setItem('ai_employee_dash_user',chatUserId);
+
+// ── Voice settings (shared across chat + voice pages) ──
+var VS_KEY='ai_employee_voice_settings';
+var voiceSettings=loadVoiceSettings();
+var voiceCatalog=null;
+
+function defaultVoiceSettings(){
+  return{stt_model:'saaras:v3',stt_mode:'transcribe',stt_lang:'unknown',tts_model:'bulbul:v2',speaker:'anushka',tts_lang:'en-IN',autospeak:false};
+}
+function loadVoiceSettings(){
+  try{var v=JSON.parse(localStorage.getItem(VS_KEY)||'null');return v?Object.assign(defaultVoiceSettings(),v):defaultVoiceSettings()}
+  catch(e){return defaultVoiceSettings()}
+}
+function saveVoiceSettings(){
+  var a=$('vs-autospeak');if(a)voiceSettings.autospeak=a.checked;
+  voiceSettings.stt_model=$('vs-stt-model').value;
+  voiceSettings.stt_mode=$('vs-stt-mode').value;
+  voiceSettings.stt_lang=$('vs-stt-lang').value;
+  voiceSettings.tts_model=$('vs-tts-model').value;
+  voiceSettings.speaker=$('vs-speaker').value;
+  voiceSettings.tts_lang=$('vs-tts-lang').value;
+  localStorage.setItem(VS_KEY,JSON.stringify(voiceSettings));
+  updateVsSummary();
+}
+function fillSelect(el,values,selected,labels){
+  el.innerHTML='';(values||[]).forEach(function(v){
+    var opt=document.createElement('option');opt.value=v;
+    opt.textContent=labels&&labels[v]?labels[v]:v;
+    if(v===selected)opt.selected=true;el.appendChild(opt);
+  });
+}
+function fallbackVoiceCatalog(){
+  return{
+    stt:{models:['saaras:v3','saaras:v4','sarvam-1','sarvam-1-20x-hi-en-2025-03-04'],default:'saaras:v3',modes:['transcribe','translate','verbatim','translit','codemix'],languages:['unknown','hi-IN','bn-IN','kn-IN','ml-IN','mr-IN','od-IN','pa-IN','ta-IN','te-IN','en-IN','gu-IN','as-IN','ur-IN','ne-IN','kok-IN','ks-IN','sd-IN','sa-IN','sat-IN','mni-IN','brx-IN','mai-IN','doi-IN']},
+    tts:{models:['bulbul:v2','bulbul:v3'],default:'bulbul:v2',speakers:{'bulbul:v2':['anushka','manisha','vidya','arya','abhilash','karun','hitesh'],'bulbul:v3':['shubh','aditya','ritu','priya','neha','rahul','pooja','rohan','simran','kavya','amit','dev','ishita','shreya','ratan','varun','manan','sumit','roopa','kabir','aayan','ashutosh','advait','anand','tanya','tarun','sunny','mani','gokul','vijay','shruti','suhani','mohit','kavitha','rehan','soham','rupali']},default_speaker:{'bulbul:v2':'anushka','bulbul:v3':'shubh'},languages:['bn-IN','en-IN','gu-IN','hi-IN','kn-IN','ml-IN','mr-IN','od-IN','pa-IN','ta-IN','te-IN'],default_language:'en-IN'}
+  };
+}
+function loadVoiceCatalog(){
+  return fetch(SPEECH_URL+'/api/voice/models',{signal:AbortSignal.timeout(8000)})
+    .then(function(r){if(!r.ok)throw new Error('catalog');return r.json()})
+    .catch(function(){return fallbackVoiceCatalog()});
+}
+function initVoicePanel(){
+  loadVoiceCatalog().then(function(cat){
+    voiceCatalog=cat;
+    var stt=cat.stt,tts=cat.tts;
+    if(stt.models.indexOf(voiceSettings.stt_model)===-1)voiceSettings.stt_model=stt.default||'saaras:v3';
+    if(stt.modes.indexOf(voiceSettings.stt_mode)===-1)voiceSettings.stt_mode=stt.modes[0];
+    if(stt.languages.indexOf(voiceSettings.stt_lang)===-1)voiceSettings.stt_lang='unknown';
+    if(tts.models.indexOf(voiceSettings.tts_model)===-1)voiceSettings.tts_model=tts.default||'bulbul:v2';
+    if(tts.languages.indexOf(voiceSettings.tts_lang)===-1)voiceSettings.tts_lang=tts.default_language||'en-IN';
+    fillSelect($('vs-stt-model'),stt.models,voiceSettings.stt_model);
+    fillSelect($('vs-stt-mode'),stt.modes,voiceSettings.stt_mode);
+    fillSelect($('vs-stt-lang'),stt.languages,voiceSettings.stt_lang);
+    fillSelect($('vs-tts-model'),tts.models,voiceSettings.tts_model);
+    fillSelect($('vs-tts-lang'),tts.languages,voiceSettings.tts_lang);
+    var speakers=(tts.speakers&&tts.speakers[voiceSettings.tts_model])||[];
+    if(speakers.indexOf(voiceSettings.speaker)===-1){
+      voiceSettings.speaker=(tts.default_speaker&&tts.default_speaker[voiceSettings.tts_model])||speakers[0]||'anushka';
+    }
+    fillSelect($('vs-speaker'),speakers,voiceSettings.speaker);
+    var as=$('vs-autospeak');if(as)as.checked=!!voiceSettings.autospeak;
+    localStorage.setItem(VS_KEY,JSON.stringify(voiceSettings));
+    updateVsSummary();
+  });
+}
+function onTtsModelChange(){
+  var model=$('vs-tts-model').value;
+  var speakers=(voiceCatalog&&voiceCatalog.tts.speakers&&voiceCatalog.tts.speakers[model])||[];
+  var def=(voiceCatalog&&voiceCatalog.tts.default_speaker&&voiceCatalog.tts.default_speaker[model])||speakers[0]||'anushka';
+  fillSelect($('vs-speaker'),speakers,def);
+  saveVoiceSettings();
+}
+function toggleVoiceSettings(){$('vs-panel').classList.toggle('open')}
+function updateVsSummary(){$('vs-summary').textContent='Voice · '+voiceSettings.speaker}
+function testVoice(){
+  var phrase='Hello! This is the AI Employee assistant speaking in the selected voice.';
+  doSpeak(phrase);
+  showChatStatus('Speaking with voice: '+voiceSettings.speaker);
 }
 
-async function resolveTask(id) {
-  const btn = document.querySelector(`#task-${id} .btn-resolve`);
-  btn.disabled = true;
-  btn.textContent = '...';
-  try {
-    await fetch(`${HITL_API}/${id}/resolve`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({resolution_note: 'Resolved by operator', assigned_to: 'operator'})
+async function loadChatHistory(){
+  try{
+    var r=await fetch(MEM_URL+'/memory/conversation/'+encodeURIComponent(chatSessionId));
+    if(!r.ok)return;
+    var msgs=await r.json();
+    if(!msgs||!msgs.length)return;
+    $('chat-msgs').innerHTML='';
+    msgs.forEach(function(m){
+      addChatMsg(m.role==='user'?'user':'assistant',m.content,new Date(m.created_at));
     });
-    loadTasks();
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = 'Resolve';
+  }catch(e){}
+}
+
+function addChatMsg(role,text,time){
+  var w=$('page-chat').querySelector('.chat-welcome');
+  if(w)w.style.display='none';
+  var el=document.createElement('div');
+  el.className='chat-msg '+role;
+  el.setAttribute('data-text',escAttr(text));
+  var content;
+  if(role==='assistant'){
+    content=renderMarkdown(text);
+    content+='<span class="chat-msg-actions"><button class="chat-action-copy" onclick="copyChatMsg(this)" title="Copy">&#128203;</button><button class="chat-spk" onclick="speakText(this)" data-text="'+escAttr(text)+'" title="Read aloud">&#128266;</button></span>';
+  }else{
+    content=esc(text);
+  }
+  el.innerHTML=content+'<span class="chat-time">'+(time||new Date()).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span>';
+  $('chat-msgs').appendChild(el);
+  $('chat-msgs').scrollTop=$('chat-msgs').scrollHeight;
+  lastAssistantText=role==='assistant'?text:lastAssistantText;
+  if(role==='assistant'){$('chat-speak-last').style.display='inline-block'}
+  return el
+}
+
+function renderMarkdown(text){
+  var html=esc(text);
+  html=html.replace(/^```([\s\S]*?)```$/gm,function(_,code){return'<pre><code>'+code.replace(/\n$/,'')+'</code></pre>'});
+  html=html.replace(/`([^`]+)`/g,'<code>$1</code>');
+  html=html.replace(/^### (.*)$/gm,'<h3>$1</h3>');
+  html=html.replace(/^## (.*)$/gm,'<h2>$1</h2>');
+  html=html.replace(/^# (.*)$/gm,'<h1>$1</h1>');
+  html=html.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  html=html.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  html=html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  html=html.replace(/^\s*[-*] (.+)$/gm,'<li>$1</li>');
+  html=html.replace(/^\s*\d+\. (.+)$/gm,'<li>$1</li>');
+  html=html.replace(/^\s*&gt; (.+)$/gm,'<blockquote>$1</blockquote>');
+  html=html.replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g,'<ul>$1</ul>');
+  html=html.replace(/\n{2,}/g,'</p><p>');
+  html=html.replace(/\n/g,'<br>');
+  return'<p>'+html+'</p>';
+}
+
+function copyChatMsg(btn){
+  var msg=btn.closest('.chat-msg');
+  var text=(msg&&msg.getAttribute('data-text'))||msg.textContent.trim();
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){showChatStatus('Copied to clipboard')});
+  }else{
+    var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');document.body.removeChild(ta);showChatStatus('Copied to clipboard');
   }
 }
 
-function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function showChatTyping(show){
+  var ex=$('chat-msgs').querySelector('.chat-typing');
+  if(show&&!ex){
+    var row=document.createElement('div');
+    row.className='chat-typing';
+    row.innerHTML='<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+    $('chat-msgs').appendChild(row);
+    $('chat-msgs').scrollTop=$('chat-msgs').scrollHeight;
+  }else if(!show&&ex){ex.remove()}
+}
 
-// ── Voice Assistant ──
+async function sendChat(text){
+  try{
+    var r=await fetch(GW_URL+'/api/channels/web',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,session_id:chatSessionId,sender:{user_id:chatUserId,external_id:chatUserId},message_id:'dash-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)})});
+    if(!r.ok){var b=await r.json().catch(function(){return{}});throw new Error(b.detail||'Request failed ('+r.status+')')}
+    var d=await r.json();
+    return d.final_response||'(no response)';
+  }catch(e){throw e}
+}
 
-let mediaRecorder = null;
-let audioChunks = [];
-let responseAudioBase64 = null;
+document.getElementById('chat-form').addEventListener('submit',async function(e){
+  e.preventDefault();
+  var input=$('chat-input');var text=input.value.trim();if(!text)return;
+  input.value='';input.style.height='auto';
+  addChatMsg('user',text);$('chat-send').disabled=true;
+  $('chat-status').textContent='';
+  showChatTyping(true);
+  try{
+    var reply=await sendChat(text);
+    showChatTyping(false);
+    addChatMsg('assistant',reply);
+    if(autoMode){speakLast()}
+    else if(voiceSettings.autospeak){doSpeak(reply)}
+  }catch(err){
+    showChatTyping(false);
+    var el=document.createElement('div');
+    el.className='chat-msg error';
+    el.innerHTML=esc(err.message)+'<span class="chat-time">'+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span>';
+    $('chat-msgs').appendChild(el);
+  }finally{$('chat-send').disabled=false;$('chat-input').focus()}
+});
 
-const micBtn = document.getElementById('micBtn');
-const voiceStatus = document.getElementById('voiceStatus');
-const voiceTranscript = document.getElementById('voiceTranscript');
-const voiceResponse = document.getElementById('voiceResponse');
-const voiceActions = document.getElementById('voiceActions');
-const btnPlay = document.getElementById('btnPlay');
+function showChatStatus(msg,type){$('chat-status').innerHTML='';var s=$('chat-status');s.textContent=msg;s.style.color=type==='error'?'var(--red)':'var(--text-muted)'}
 
-async function toggleRecording() {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    stopRecording();
-    return;
+function chatInputKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('chat-form').dispatchEvent(new Event('submit',{cancelable:true}))}}
+
+async function clearChat(){
+  if(!confirm('Clear this conversation?'))return;
+  try{await fetch(MEM_URL+'/memory/session/'+chatSessionId+'/clear',{method:'POST'})}catch(e){}
+  $('chat-msgs').innerHTML='<div class="chat-welcome"><h2>Hello! I\'m your AI Employee</h2><p>Ask me anything — product info, orders, pricing, weather, scheduling, or even send emails</p></div>';
+}
+
+// ── VOICE ──
+var lastAssistantText='';
+var autoMode=false;
+var chatMicRecorder=null,chatMicChunks=[],chatAudioBlob=null;
+var ttsAudio=null,ttsPlaying=false,ttsBtnChat=null,ttsBtnVoice=null;
+
+function toggleAutoMode(){autoMode=$('chat-auto-mode').checked}
+
+async function toggleChatMic(){
+  if(chatMicRecorder&&chatMicRecorder.state==='recording'){stopChatMic();return}
+  if(chatMicRecorder&&chatMicRecorder.state==='inactive'){startChatMicRecording();return}
+  try{
+    var stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    chatMicRecorder=new MediaRecorder(stream,{mimeType:'audio/webm;codecs=opus'});
+    chatMicRecorder.ondataavailable=function(e){if(e.data.size>0)chatMicChunks.push(e.data)};
+    chatMicRecorder.onstop=function(){stream.getTracks().forEach(function(t){t.stop()});processChatMicAudio()};
+    startChatMicRecording();
+  }catch(e){$('chat-status').textContent='Microphone denied'}
+}
+
+function startChatMicRecording(){
+  chatMicChunks=[];chatAudioBlob=null;chatMicRecorder.start();
+  $('chat-mic').classList.add('recording');$('chat-mic').classList.remove('processing');
+  $('chat-mic').title='Click to stop';$('chat-mic-stop').style.display='inline-block';
+  $('chat-status').textContent='Listening... (click mic or Stop to end)';
+}
+
+function stopChatMic(){
+  chatMicRecorder.stop();$('chat-mic').classList.remove('recording');$('chat-mic').classList.add('processing');
+  $('chat-mic').title='Processing...';$('chat-mic-stop').style.display='none';
+  $('chat-status').textContent='Processing audio...';
+}
+
+function cancelChatMic(){
+  if(chatMicRecorder){var stream=chatMicRecorder.stream;chatMicRecorder.stop();if(stream)stream.getTracks().forEach(function(t){t.stop()})}
+  $('chat-mic').classList.remove('recording','processing');$('chat-mic').title='Click to record';
+  $('chat-mic-stop').style.display='none';$('chat-status').textContent='Recording cancelled';
+}
+
+async function processChatMicAudio(){
+  chatAudioBlob=new Blob(chatMicChunks,{type:'audio/webm'});
+  try{
+    var fd=new FormData();
+    fd.append('file',chatAudioBlob,'recording.webm');
+    fd.append('model',voiceSettings.stt_model||'saaras:v3');
+    fd.append('mode',voiceSettings.stt_mode||'transcribe');
+    if(voiceSettings.stt_lang&&voiceSettings.stt_lang!=='unknown')fd.append('language_code',voiceSettings.stt_lang);
+    var r=await fetch(SPEECH_URL+'/api/speech-to-text',{method:'POST',body:fd});
+    if(!r.ok)throw new Error('STT failed: '+r.status);
+    var d=await r.json();var text=d.transcript||'';
+    if(text){$('chat-input').value=text;$('chat-status').textContent='Transcribed: '+text;document.getElementById('chat-form').dispatchEvent(new Event('submit',{cancelable:true}))}
+    else{$('chat-status').textContent='No speech detected'}
+  }catch(e){$('chat-status').textContent='STT error: '+e.message}
+  $('chat-mic').classList.remove('processing');$('chat-mic').title='Click to record';
+}
+
+async function doSpeak(text){
+  clearTtsAudio();
+  showChatStatus('Speaking...','');
+  $('chat-speak-last').disabled=true;
+  try{
+    var payload={text:text.substring(0,2000)};
+    if(voiceSettings.tts_lang)payload.language_code=voiceSettings.tts_lang;
+    if(voiceSettings.tts_model)payload.model=voiceSettings.tts_model;
+    if(voiceSettings.speaker)payload.speaker=voiceSettings.speaker;
+    var r=await fetch(SPEECH_URL+'/api/text-to-speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok)throw new Error('TTS failed ('+r.status+')');
+    var d=await r.json();
+    if(!d.audio_base64||d.audio_bytes===0){throw new Error('No audio data')}
+    playAudioBase64(d.audio_base64);
+    showChatStatus('','');
+  }catch(e){showChatStatus('TTS error: '+e.message,'error');}
+  $('chat-speak-last').disabled=false;
+}
+
+async function speakText(btn){
+  var text=btn.getAttribute('data-text');
+  if(!text)return;
+  var allSpks=document.querySelectorAll('.chat-spk');
+  allSpks.forEach(function(s){s.classList.remove('playing')});
+  btn.classList.add('playing');
+  await doSpeak(text);
+  setTimeout(function(){btn.classList.remove('playing')},3000);
+}
+
+function speakLast(){
+  if(lastAssistantText)doSpeak(lastAssistantText);else showChatStatus('No message to read','error');
+}
+
+function playAudioBase64(b64){
+  try{
+    var chars=atob(b64);var bytes=new Uint8Array(chars.length);
+    for(var i=0;i<chars.length;i++)bytes[i]=chars.charCodeAt(i);
+    var blob=new Blob([bytes],{type:'audio/wav'});
+    var audio=new Audio(URL.createObjectURL(blob));
+    trackTtsAudio(audio);
+    audio.play().catch(function(){});
+    audio.onended=function(){clearTtsAudio();if(autoMode){setTimeout(function(){$('chat-mic').click()},500)}}
+  }catch(e){$('chat-status').textContent='Audio play error'}
+}
+
+function trackTtsAudio(audio){
+  clearTtsAudio();
+  ttsAudio=audio;ttsPlaying=true;
+  updateTtsPauseButtons();
+  audio.onpause=function(){ttsPlaying=false;updateTtsPauseButtons()};
+  audio.onplay=function(){ttsPlaying=true;updateTtsPauseButtons()};
+}
+
+function clearTtsAudio(){
+  if(ttsAudio){
+    try{ttsAudio.pause();ttsAudio.src=''}catch(e){}
+    ttsAudio=null;
   }
+  ttsPlaying=false;
+  updateTtsPauseButtons();
+}
 
-  if (mediaRecorder && mediaRecorder.state === 'inactive') {
+function updateTtsPauseButtons(){
+  var show=ttsAudio!==null;
+  var chatBtn=$('chat-tts-pause'),voiceBtn=$('voice-tts-pause');
+  if(chatBtn)chatBtn.style.display=show?'inline-block':'none';
+  if(voiceBtn)voiceBtn.style.display=show?'inline-block':'none';
+  var label=ttsPlaying?'&#10074;&#10074; Pause':'&#9654; Resume';
+  if(chatBtn)chatBtn.innerHTML=label;
+  if(voiceBtn)voiceBtn.innerHTML=label;
+}
+
+function toggleTtsPause(){
+  if(!ttsAudio)return;
+  if(ttsAudio.paused){ttsAudio.play().catch(function(){});ttsPlaying=true}
+  else{ttsAudio.pause();ttsPlaying=false}
+  updateTtsPauseButtons();
+}
+
+// ── OVERVIEW ──
+async function loadOverview(){
+  var services=[
+    {id:'kpi-orch',url:ORCH_URL+'/health',label:'Orchestrator'},
+    {id:'kpi-memory',url:MEM_URL+'/health',label:'Memory'},
+    {id:'kpi-rag',url:RAG_URL+'/health',label:'RAG'},
+    {id:'kpi-speech',url:SPEECH_URL+'/health',label:'Speech'},
+    {id:'kpi-gateway',url:GW_URL+'/health',label:'Gateway'},
+  ];
+  for(var s of services){
+    try{
+      var r=await fetch(s.url,{signal:AbortSignal.timeout(3000)});
+      $(s.id).innerHTML=r.ok?'<span class="text-green">&#9989; Online</span>':'<span class="text-red">Error</span>';
+    }catch(e){$(s.id).innerHTML='<span class="text-red">Offline</span>'}
+  }
+  try{
+    var cr=await fetch(HITL_API+'/count');
+    var cd=await cr.json();
+    $('kpi-hitl').textContent=cd.pending||0;
+  }catch(e){$('kpi-hitl').textContent='—'}
+  var activity=[];
+  if(memoryStats){activity.push('Memory service has '+memoryStats.sessionCount+' active sessions');}
+  activity.push('Last refreshed: '+new Date().toLocaleTimeString());
+  $('overview-activity').innerHTML=activity.length?activity.join('<br>'):'No recent activity';
+}
+
+// ── HITL ──
+async function loadTasks(){
+  try{
+    var [tr,cr]=await Promise.all([fetch(HITL_API),fetch(HITL_API+'/count')]);
+    var tasks=await tr.json();
+    var _a=await cr.json();
+    $('count-badge').textContent=(_a.pending||0)+' pending';
+    if(!tasks.length){$('task-list').innerHTML='<div class="text-muted" style="padding:2rem;text-align:center">No pending tasks</div>';return}
+    $('task-list').innerHTML=tasks.map(function(t){
+      return'<div class="task-card" id="task-'+t.id+'"><div class="task-header"><span class="task-title">'+esc(t.intent.toUpperCase())+' — '+esc(t.user_input.substring(0,60))+(t.user_input.length>60?'...':'')+'</span><span class="badge '+(t.status==='pending'?'badge-pending':'badge-progress')+'">'+t.status+'</span></div><div class="task-meta"><span>ID: '+t.id.substring(0,8)+'</span><span>Priority: '+t.priority+'</span><span>Created: '+new Date(t.created_at).toLocaleString()+'</span></div><div class="task-body">'+esc(t.reason||'No reason provided')+'</div><div class="task-actions"><button class="btn btn-primary btn-sm" onclick="claimTask(\''+t.id+'\')">Claim</button><button class="btn btn-success btn-sm" onclick="resolveTask(\''+t.id+'\')">Resolve</button></div></div>';
+    }).join('');
+  }catch(e){$('task-list').innerHTML='<div class="text-red" style="padding:2rem;text-align:center">Error loading tasks</div>'}
+}
+async function claimTask(id){
+  var btn=document.querySelector('#task-'+id+' .btn-primary');btn.disabled=true;btn.textContent='...';
+  try{await fetch(HITL_API+'/'+id+'/claim',{method:'POST'});loadTasks()}
+  catch(e){btn.disabled=false;btn.textContent='Claim'}
+}
+async function resolveTask(id){
+  var btn=document.querySelector('#task-'+id+' .btn-success');btn.disabled=true;btn.textContent='...';
+  try{await fetch(HITL_API+'/'+id+'/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resolution_note:'Resolved',assigned_to:'operator'})});loadTasks()}
+  catch(e){btn.disabled=false;btn.textContent='Resolve'}
+}
+
+// ── VOICE ──
+var mediaRecorder=null,audioChunks=[],responseAudioBase64=null;
+var toolMediaRecorder=null,toolAudioChunks=[],toolAudioBlob=null;
+
+async function toggleRecording(){
+  if(mediaRecorder&&mediaRecorder.state==='recording'){stopRecording();return}
+  if(mediaRecorder&&mediaRecorder.state==='inactive'){startNewRecording();return}
+  try{
+    var stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder=new MediaRecorder(stream,{mimeType:'audio/webm;codecs=opus'});
+    mediaRecorder.ondataavailable=function(e){if(e.data.size>0)audioChunks.push(e.data)};
+    mediaRecorder.onstop=function(){stream.getTracks().forEach(function(t){t.stop()});processAudio()};
     startNewRecording();
-    return;
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = () => {
-      stream.getTracks().forEach(t => t.stop());
-      processAudio();
-    };
-    startNewRecording();
-  } catch (e) {
-    voiceStatus.textContent = 'Microphone access denied';
-  }
+  }catch(e){$('voiceStatus').textContent='Microphone access denied'}
+}
+function startNewRecording(){
+  audioChunks=[];mediaRecorder.start();
+  $('micBtn').classList.add('recording');$('micBtn').classList.remove('processing');
+  $('micBtn').title='Click to stop';$('voiceStopBtn').style.display='inline-block';
+  $('voiceStatus').textContent='Listening...';$('voiceTranscript').textContent='';
+  $('voiceResponse').textContent='';$('voiceActions').style.display='none';responseAudioBase64=null;
+}
+function stopRecording(){
+  mediaRecorder.stop();$('micBtn').classList.remove('recording');$('micBtn').classList.add('processing');
+  $('micBtn').title='Processing...';$('voiceStopBtn').style.display='none';
+  $('voiceStatus').textContent='Processing...';
+}
+function cancelRecording(){
+  if(mediaRecorder){mediaRecorder.stop();stream.getTracks().forEach(function(t){t.stop()})}
+  $('micBtn').classList.remove('recording','processing');$('micBtn').title='Click to record';
+  $('voiceStopBtn').style.display='none';$('voiceStatus').textContent='Cancelled. Click mic to try again';
+}
+async function processAudio(){
+  var blob=new Blob(audioChunks,{type:'audio/webm'});
+  try{
+    var transcript=await transcribeAudio(blob);
+    $('voiceTranscript').textContent=transcript;$('voiceStatus').textContent='Got it! Thinking...';
+    var response=await runAgent(transcript);
+    $('voiceResponse').textContent=response;$('voiceStatus').textContent='';
+    try{await synthesizeAudio(response);$('voiceActions').style.display='block';$('btnPlay').disabled=false;$('voiceStatus').textContent='Ready'}
+    catch(e){$('voiceStatus').textContent='Response ready (TTS: '+e.message+')'}
+  }catch(e){$('voiceStatus').textContent='Error: '+e.message}
+  $('micBtn').classList.remove('processing');$('micBtn').title='Click to record';
+}
+async function transcribeAudio(blob){
+  var fd=new FormData();
+  fd.append('file',blob,'recording.webm');
+  fd.append('model',voiceSettings.stt_model||'saaras:v3');
+  fd.append('mode',voiceSettings.stt_mode||'transcribe');
+  if(voiceSettings.stt_lang&&voiceSettings.stt_lang!=='unknown')fd.append('language_code',voiceSettings.stt_lang);
+  var r=await fetch(SPEECH_URL+'/api/speech-to-text',{method:'POST',body:fd});
+  if(!r.ok)throw new Error('STT failed: '+r.status);
+  var d=await r.json();return d.transcript||'(no transcript)';
+}
+async function runAgent(text){
+  var r=await fetch(ORCH_URL+'/api/agent/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_input:text})});
+  if(!r.ok)throw new Error('Agent failed: '+r.status);
+  var d=await r.json();return d.final_response||'No response.';
+}
+async function synthesizeAudio(text){
+  $('voiceStatus').textContent='Generating voice...';
+  var payload={text:text.substring(0,2000)};
+  if(voiceSettings.tts_lang)payload.language_code=voiceSettings.tts_lang;
+  if(voiceSettings.tts_model)payload.model=voiceSettings.tts_model;
+  if(voiceSettings.speaker)payload.speaker=voiceSettings.speaker;
+  var r=await fetch(SPEECH_URL+'/api/text-to-speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!r.ok)throw new Error('TTS failed: '+r.status);
+  var d=await r.json();
+  if(d.error)throw new Error('TTS error: '+d.error);
+  if(!d.audio_base64||d.audio_bytes===0)throw new Error('Empty audio');
+  responseAudioBase64=d.audio_base64;
+}
+function playResponseAudio(){
+  if(!responseAudioBase64){$('voiceStatus').textContent='No audio';return}
+  try{
+    var chars=atob(responseAudioBase64);
+    var bytes=new Uint8Array(chars.length);
+    for(var i=0;i<chars.length;i++)bytes[i]=chars.charCodeAt(i);
+    var blob=new Blob([bytes],{type:'audio/wav'});
+    var audio=new Audio(URL.createObjectURL(blob));
+    trackTtsAudio(audio);
+    audio.play().catch(function(){$('voiceStatus').textContent='Playback blocked. Click again.'});
+    audio.onended=function(){clearTtsAudio()};
+  }catch(e){$('voiceStatus').textContent='Audio decode failed'}
 }
 
-function startNewRecording() {
-  audioChunks = [];
-  mediaRecorder.start();
-  micBtn.classList.add('recording');
-  micBtn.classList.remove('processing');
-  voiceStatus.textContent = 'Listening...';
-  voiceTranscript.textContent = '';
-  voiceResponse.textContent = '';
-  voiceActions.style.display = 'none';
-  responseAudioBase64 = null;
-}
-
-function stopRecording() {
-  mediaRecorder.stop();
-  micBtn.classList.remove('recording');
-  micBtn.classList.add('processing');
-  voiceStatus.textContent = 'Processing...';
-}
-
-async function processAudio() {
-  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-
-  try {
-    const transcript = await transcribeAudio(audioBlob);
-    voiceTranscript.textContent = transcript;
-    voiceStatus.textContent = 'Got it! Thinking...';
-
-    const agentResponse = await runAgent(transcript);
-    voiceResponse.textContent = agentResponse;
-    voiceStatus.textContent = '';
-
-    try {
-      await synthesizeAudio(agentResponse);
-      voiceActions.style.display = 'flex';
-      btnPlay.disabled = false;
-      voiceStatus.textContent = 'Ready';
-    } catch (ttsErr) {
-      voiceStatus.textContent = 'Response ready (TTS unavailable: ' + ttsErr.message + ')';
-    }
-  } catch (e) {
-    voiceStatus.textContent = 'Error: ' + e.message;
-  }
-
-  micBtn.classList.remove('processing');
-}
-
-async function transcribeAudio(audioBlob) {
-  const formData = new FormData();
-  formData.append('file', audioBlob, 'recording.webm');
-  formData.append('model', 'saaras:v3');
-
-  const res = await fetch(`${SPEECH_URL}/api/speech-to-text`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!res.ok) throw new Error('STT failed: ' + res.status);
-  const data = await res.json();
-  return data.transcript || '(no transcript)';
-}
-
-async function runAgent(text) {
-  const res = await fetch(`${ORCHESTRATOR_URL}/api/agent/run`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_input: text }),
-  });
-
-  if (!res.ok) throw new Error('Agent failed: ' + res.status);
-  const data = await res.json();
-  return data.final_response || 'No response generated.';
-}
-
-async function synthesizeAudio(text) {
-  voiceStatus.textContent = 'Generating voice...';
-
-  const res = await fetch(`${SPEECH_URL}/api/text-to-speech`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: text.substring(0, 2000) }),
-  });
-
-  if (!res.ok) throw new Error('TTS failed: ' + res.status);
-  const data = await res.json();
-
-  if (data.error) {
-    voiceStatus.textContent = 'TTS error: ' + data.error;
-    throw new Error('TTS error: ' + data.error);
-  }
-
-  if (!data.audio_base64 || data.audio_bytes === 0) {
-    voiceStatus.textContent = 'TTS returned empty audio. Try shorter text.';
-    throw new Error('TTS: empty audio response');
-  }
-
-  responseAudioBase64 = data.audio_base64;
-}
-
-function playResponseAudio() {
-  if (!responseAudioBase64) {
-    voiceStatus.textContent = 'No audio to play. Try again.';
-    return;
-  }
-
-  try {
-    const byteChars = atob(responseAudioBase64);
-    const byteNums = new Array(byteChars.length);
-    for (let i = 0; i < byteChars.length; i++) {
-      byteNums[i] = byteChars.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNums);
-    const blob = new Blob([byteArray], { type: 'audio/wav' });
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.play().catch(err => {
-      voiceStatus.textContent = 'Playback blocked. Click play again or interact with page first.';
-    });
-  } catch (e) {
-    voiceStatus.textContent = 'Audio decode failed: ' + e.message;
-  }
-}
-
-// ── Voice Tools ──
-
-let toolMediaRecorder = null;
-let toolAudioChunks = [];
-let toolAudioBlob = null;
-
-const toolMicBtn = document.getElementById('toolMicBtn');
-const toolMicStatus = document.getElementById('toolMicStatus');
-const toolTranscript = document.getElementById('toolTranscript');
-const toolResponse = document.getElementById('toolResponse');
-
-async function toggleToolRecording() {
-  if (toolMediaRecorder && toolMediaRecorder.state === 'recording') {
-    stopToolRecording();
-    return;
-  }
-
-  if (toolMediaRecorder && toolMediaRecorder.state === 'inactive') {
+// Voice Tools
+async function toggleToolRecording(){
+  if(toolMediaRecorder&&toolMediaRecorder.state==='recording'){stopToolRecording();return}
+  if(toolMediaRecorder&&toolMediaRecorder.state==='inactive'){startNewToolRecording();return}
+  try{
+    var stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    toolMediaRecorder=new MediaRecorder(stream,{mimeType:'audio/webm;codecs=opus'});
+    toolMediaRecorder.ondataavailable=function(e){if(e.data.size>0)toolAudioChunks.push(e.data)};
+    toolMediaRecorder.onstop=function(){stream.getTracks().forEach(function(t){t.stop()});processToolAudio()};
     startNewToolRecording();
-    return;
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    toolMediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-    toolMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) toolAudioChunks.push(e.data); };
-    toolMediaRecorder.onstop = () => {
-      stream.getTracks().forEach(t => t.stop());
-      processToolAudio();
-    };
-    startNewToolRecording();
-  } catch (e) {
-    toolMicStatus.textContent = 'Microphone access denied';
-  }
+  }catch(e){$('toolMicStatus').textContent='Microphone access denied'}
 }
-
-function startNewToolRecording() {
-  toolAudioChunks = [];
-  toolAudioBlob = null;
-  toolMediaRecorder.start();
-  toolMicBtn.classList.add('recording');
-  toolMicBtn.classList.remove('processing');
-  toolMicStatus.textContent = 'Listening...';
-  toolTranscript.textContent = '';
-  toolResponse.textContent = '';
+function startNewToolRecording(){
+  toolAudioChunks=[];toolAudioBlob=null;toolMediaRecorder.start();
+  $('toolMicBtn').classList.add('recording');$('toolMicBtn').classList.remove('processing');
+  $('toolMicBtn').title='Click to stop';$('toolStopBtn').style.display='inline-block';
+  $('toolMicStatus').textContent='Listening...';$('toolTranscript').textContent='';$('toolResponse').textContent='';
 }
-
-function stopToolRecording() {
-  toolMediaRecorder.stop();
-  toolMicBtn.classList.remove('recording');
-  toolMicBtn.classList.add('processing');
-  toolMicStatus.textContent = 'Processing...';
+function stopToolRecording(){
+  toolMediaRecorder.stop();$('toolMicBtn').classList.remove('recording');$('toolMicBtn').classList.add('processing');
+  $('toolMicBtn').title='Processing...';$('toolStopBtn').style.display='none';
+  $('toolMicStatus').textContent='Processing...';
 }
-
-async function processToolAudio() {
-  toolAudioBlob = new Blob(toolAudioChunks, { type: 'audio/webm' });
-  try {
-    const transcript = await transcribeAudio(toolAudioBlob);
-    toolTranscript.textContent = transcript;
-    toolMicStatus.textContent = 'Ready — choose a tool above';
-  } catch (e) {
-    toolMicStatus.textContent = 'Error: ' + e.message;
-  }
-  toolMicBtn.classList.remove('processing');
+function cancelToolRecording(){
+  if(toolMediaRecorder){var stream=toolMediaRecorder.stream;toolMediaRecorder.stop();if(stream)stream.getTracks().forEach(function(t){t.stop()})}
+  $('toolMicBtn').classList.remove('recording','processing');$('toolMicBtn').title='Click to record';
+  $('toolStopBtn').style.display='none';$('toolMicStatus').textContent='Cancelled. Click mic to try again';
 }
-
-async function runTool(tool) {
-  const text = toolTranscript.textContent.trim();
-  if (!text && tool !== 'stt-translate') {
-    toolResponse.textContent = 'No text available. Record or transcribe audio first.';
-    return;
-  }
-
-  toolResponse.textContent = 'Running...';
-  try {
-    if (tool === 'detect') {
-      const res = await fetch(`${SPEECH_URL}/api/detect-language`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error('Detect failed: ' + res.status);
-      const data = await res.json();
-      toolResponse.textContent = `Language: ${data.language_code}\nScript: ${data.script_code}`;
-    } else if (tool === 'translate') {
-      const res = await fetch(`${SPEECH_URL}/api/translate-text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, source_language_code: 'auto', target_language_code: 'en-IN' }),
-      });
-      if (!res.ok) throw new Error('Translate failed: ' + res.status);
-      const data = await res.json();
-      toolResponse.textContent = data.translated_text;
-    } else if (tool === 'transliterate') {
-      const res = await fetch(`${SPEECH_URL}/api/transliterate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, source_language_code: 'hi-IN', target_language_code: 'en-IN' }),
-      });
-      if (!res.ok) throw new Error('Transliterate failed: ' + res.status);
-      const data = await res.json();
-      toolResponse.textContent = data.transliterated_text;
-    } else if (tool === 'stt-translate') {
-      if (!toolAudioBlob) {
-        toolResponse.textContent = 'No audio recorded. Click the mic first.';
-        return;
-      }
-      const formData = new FormData();
-      formData.append('file', toolAudioBlob, 'recording.webm');
-      formData.append('source_language_code', 'unknown');
-      formData.append('target_language_code', 'en-IN');
-      const res = await fetch(`${SPEECH_URL}/api/speech-to-text-translate`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (!res.ok) throw new Error('STT translate failed: ' + res.status);
-      const data = await res.json();
-      toolResponse.textContent = data.transcript;
+async function processToolAudio(){
+  toolAudioBlob=new Blob(toolAudioChunks,{type:'audio/webm'});
+  try{var t=await transcribeAudio(toolAudioBlob);$('toolTranscript').textContent=t;$('toolMicStatus').textContent='Ready'}
+  catch(e){$('toolMicStatus').textContent='Error: '+e.message}
+  $('toolMicBtn').classList.remove('processing');
+}
+async function runTool(tool){
+  var text=$('toolTranscript').textContent.trim();
+  if(!text&&tool!=='stt-translate'){$('toolResponse').textContent='No text. Record audio first.';return}
+  $('toolResponse').textContent='Running...';
+  try{
+    if(tool==='detect'){
+      var r=await fetch(SPEECH_URL+'/api/detect-language',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+      if(!r.ok)throw new Error('Failed: '+r.status);
+      var d=await r.json();
+      $('toolResponse').textContent='Language: '+d.language_code+'\nScript: '+d.script_code;
+    }else if(tool==='translate'){
+      var r=await fetch(SPEECH_URL+'/api/translate-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,source_language_code:'auto',target_language_code:'en-IN'})});
+      if(!r.ok)throw new Error('Failed: '+r.status);
+      var d=await r.json();$('toolResponse').textContent=d.translated_text;
+    }else if(tool==='transliterate'){
+      var r=await fetch(SPEECH_URL+'/api/transliterate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,source_language_code:'hi-IN',target_language_code:'en-IN'})});
+      if(!r.ok)throw new Error('Failed: '+r.status);
+      var d=await r.json();$('toolResponse').textContent=d.transliterated_text;
+    }else if(tool==='stt-translate'){
+      if(!toolAudioBlob){$('toolResponse').textContent='Record audio first.';return}
+      var fd=new FormData();fd.append('file',toolAudioBlob,'recording.webm');fd.append('source_language_code','unknown');fd.append('target_language_code','en-IN');
+      var r=await fetch(SPEECH_URL+'/api/speech-to-text-translate',{method:'POST',body:fd});
+      if(!r.ok)throw new Error('Failed: '+r.status);
+      var d=await r.json();$('toolResponse').textContent=d.transcript;
     }
-  } catch (e) {
-    toolResponse.textContent = 'Error: ' + e.message;
-  }
+  }catch(e){$('toolResponse').textContent='Error: '+e.message}
 }
 
-// ── RAG Document Management ──
+// ── MEMORY ──
+var memoryStats={sessionCount:0,ltCount:0,profileCount:0};
 
-const RAG_URL = 'http://localhost:8004';
-
-async function uploadRagFile(input) {
-  const file = input.files[0];
-  if (!file) return;
-  document.getElementById('ragDropText').textContent = `Uploading: ${file.name}...`;
-  document.getElementById('ragStatus').textContent = 'Uploading...';
-
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('title', file.name);
-
-  try {
-    const res = await fetch(`${RAG_URL}/api/documents/upload`, { method: 'POST', body: formData });
-    if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    document.getElementById('ragDropText').textContent = 'Drop a file here, or click to browse';
-    document.getElementById('ragStatus').textContent = `Uploaded: ${data.title} (${data.chunks_count} chunks)`;
-    document.getElementById('ragFileInput').value = '';
-    listRagDocs();
-  } catch (e) {
-    document.getElementById('ragStatus').textContent = 'Upload failed: ' + e.message;
-    document.getElementById('ragDropText').textContent = 'Drop a file here, or click to browse';
-  }
+async function loadMemoryStats(){
+  try{
+    var sr=await fetch(MEM_URL+'/memory/session?page_size=100');
+    if(sr.ok){var sd=await sr.json();var sData=sd.data||sd;memoryStats.sessionCount=sData.total||0;$('kpi-sessions').textContent=memoryStats.sessionCount;
+      var sessions=sData.items||[];
+      $('memory-sessions-list').innerHTML=sessions.length?sessions.slice(0,10).map(function(s){
+        var sid=s.session_id||'unknown';
+        return'<div style="padding:10px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><div><strong>'+esc(sid.substring(0,8))+'</strong><br><span class="text-sm text-muted">'+esc(s.user_id||'anonymous')+'</span></div><div class="text-sm"><span class="text-muted">'+s.message_count+' msgs</span><br><span class="text-xs text-muted">'+(s.updated_at?new Date(s.updated_at).toLocaleDateString():'')+'</span></div><button class="btn btn-danger btn-sm" onclick="deleteSession(\''+sid+'\')" title="Delete">&#10005;</button></div>';
+      }).join(''):'<div class="text-muted" style="padding:1rem;text-align:center">No sessions found</div>';
+    }else{$('kpi-sessions').textContent='—'}
+  }catch(e){$('kpi-sessions').textContent='—'}
+  try{
+    var ltr=await fetch(MEM_URL+'/memory/long-term?page_size=1');
+    if(ltr.ok){var ltd=await ltr.json();var ltData=ltd.data||ltd;memoryStats.ltCount=ltData.total||0;$('kpi-lt-memories').textContent=memoryStats.ltCount}
+  }catch(e){$('kpi-lt-memories').textContent='—'}
+  try{
+    var pr=await fetch(MEM_URL+'/memory/profile?page_size=1');
+    if(pr.ok){var pd=await pr.json();var pData=pd.data||pd;memoryStats.profileCount=pData.total||0;$('kpi-profiles').textContent=memoryStats.profileCount}
+  }catch(e){$('kpi-profiles').textContent='—'}
+  $('kpi-searches').textContent='—';
 }
 
-async function publishRagText() {
-  const title = document.getElementById('ragTitle').value.trim() || 'Untitled';
-  const content = document.getElementById('ragContent').value.trim();
-  if (!content) { document.getElementById('ragStatus').textContent = 'Enter content first'; return; }
-
-  document.getElementById('ragStatus').textContent = 'Publishing...';
-  try {
-    const res = await fetch(`${RAG_URL}/api/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content }),
-    });
-    if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    document.getElementById('ragStatus').textContent = `Published: ${data.title} (${data.chunks_count} chunks)`;
-    document.getElementById('ragTitle').value = '';
-    document.getElementById('ragContent').value = '';
-    listRagDocs();
-  } catch (e) {
-    document.getElementById('ragStatus').textContent = 'Publish failed: ' + e.message;
-  }
+async function deleteSession(sid){
+  if(!confirm('Delete session '+sid.substring(0,8)+'?'))return;
+  try{await fetch(MEM_URL+'/memory/session/'+sid,{method:'DELETE'});loadMemoryStats()}catch(e){}
 }
 
-async function listRagDocs() {
-  try {
-    const res = await fetch(`${RAG_URL}/api/documents`);
-    if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    const docs = data.items || data;
-    if (!docs.length) {
-      document.getElementById('ragDocList').innerHTML = '<div style="color:var(--muted);text-align:center;padding:1rem">No documents uploaded yet</div>';
-      return;
-    }
-    document.getElementById('ragDocList').innerHTML = `
-      <table class="doc-table">
-        <tr><th>Title</th><th>Status</th><th>Chunks</th><th>Created</th><th></th></tr>
-        ${docs.map(d => `
-          <tr>
-            <td>${escapeHtml(d.title)}</td>
-            <td class="doc-status-${d.status}">${d.status}</td>
-            <td>${d.chunks_count}</td>
-            <td style="font-size:.78rem;color:var(--muted)">${new Date(d.created_at).toLocaleDateString()}</td>
-            <td><button class="btn btn-danger btn-sm" onclick="deleteRagDoc('${d.id}')">Del</button></td>
-          </tr>
-        `).join('')}
-      </table>`;
-  } catch (e) {
-    document.getElementById('ragDocList').innerHTML = '<div style="color:var(--red)">Failed to load documents</div>';
-  }
+async function searchMemories(){
+  var query=$('memory-search-query').value.trim();
+  if(!query)return;
+  $('memory-search-results').innerHTML='<span class="text-muted">Searching...</span>';
+  try{
+    var r=await fetch(MEM_URL+'/memory/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:query,top_k:5})});
+    if(!r.ok)throw new Error('Search failed');
+    var data=await r.json();
+    var results=Array.isArray(data)?data:data.results||[];
+    if(!results.length){$('memory-search-results').innerHTML='<div class="text-muted">No results found</div>';return}
+    $('memory-search-results').innerHTML=results.map(function(m,idx){
+      var score=m.score!==undefined?' ('+Number(m.score).toFixed(2)+')':'';
+      return'<div style="padding:10px;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between"><span class="badge badge-pending" style="font-size:10px">'+esc(m.memory_type||'fact')+score+'</span><span class="text-xs text-muted">'+esc(m.user_id||'')+'</span></div><div style="margin-top:6px;font-size:13px;line-height:1.5">'+esc(m.content||'')+'</div></div>';
+    }).join('');
+  }catch(e){$('memory-search-results').innerHTML='<div class="text-red">Error: '+esc(e.message)+'</div>'}
 }
 
-async function deleteRagDoc(id) {
-  try {
-    await fetch(`${RAG_URL}/api/documents/${id}`, { method: 'DELETE' });
-    listRagDocs();
-    document.getElementById('ragStatus').textContent = 'Document deleted';
-  } catch (e) {
-    document.getElementById('ragStatus').textContent = 'Delete failed: ' + e.message;
-  }
+// ── RAG ──
+async function uploadRagFile(input){
+  var file=input.files[0];if(!file)return;
+  $('ragDropText').textContent='Uploading: '+file.name+'...';$('ragStatus').textContent='Uploading...';
+  var fd=new FormData();fd.append('file',file);fd.append('title',file.name);
+  try{
+    var r=await fetch(RAG_URL+'/api/documents/upload',{method:'POST',body:fd});
+    if(!r.ok)throw new Error(''+r.status);
+    var d=await r.json();
+    $('ragDropText').textContent='Drop a file here, or click to browse';
+    $('ragStatus').textContent='Uploaded: '+d.title+' ('+d.chunks_count+' chunks)';
+    $('ragFileInput').value='';listRagDocs();
+  }catch(e){$('ragStatus').textContent='Upload failed: '+e.message;$('ragDropText').textContent='Drop a file here, or click to browse'}
+}
+async function publishRagText(){
+  var title=$('ragTitle').value.trim()||'Untitled';
+  var content=$('ragContent').value.trim();
+  if(!content){$('ragStatus').textContent='Enter content first';return}
+  $('ragStatus').textContent='Publishing...';
+  try{
+    var r=await fetch(RAG_URL+'/api/documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,content})});
+    if(!r.ok)throw new Error(''+r.status);
+    var d=await r.json();
+    $('ragStatus').textContent='Published: '+d.title+' ('+d.chunks_count+' chunks)';
+    $('ragTitle').value='';$('ragContent').value='';listRagDocs();
+  }catch(e){$('ragStatus').textContent='Publish failed: '+e.message}
+}
+async function listRagDocs(){
+  try{
+    var r=await fetch(RAG_URL+'/api/documents');
+    if(!r.ok)throw new Error(''+r.status);
+    var data=await r.json();var docs=data.items||data;
+    if(!docs.length){$('ragDocList').innerHTML='<div class="text-muted" style="text-align:center;padding:1rem">No documents uploaded</div>';return}
+    $('ragDocList').innerHTML='<div class="table-wrap"><table><tr><th>Title</th><th>Status</th><th>Chunks</th><th>Created</th><th></th></tr>'+docs.map(function(d){
+      var sc=d.status==='ready'?'text-green':d.status==='processing'?'text-orange':'text-red';
+      return'<tr><td>'+esc(d.title)+'</td><td class="'+sc+'">'+d.status+'</td><td>'+d.chunks_count+'</td><td class="text-sm text-muted">'+new Date(d.created_at).toLocaleDateString()+'</td><td><button class="btn btn-danger btn-sm" onclick="deleteRagDoc(\''+d.id+'\')">Del</button></td></tr>';
+    }).join('')+'</table></div>';
+  }catch(e){$('ragDocList').innerHTML='<div class="text-red">Failed to load documents</div>'}
+}
+async function deleteRagDoc(id){
+  try{await fetch(RAG_URL+'/api/documents/'+id,{method:'DELETE'});listRagDocs();$('ragStatus').textContent='Deleted'}
+  catch(e){$('ragStatus').textContent='Delete failed: '+e.message}
+}
+async function askRagQuestion(){
+  var query=$('ragQuery').value.trim();if(!query)return;
+  $('ragAnswer').innerHTML='<span class="text-muted">Searching documents...</span>';
+  try{
+    var rr=await fetch(RAG_URL+'/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,top_k:3})});
+    if(!rr.ok)throw new Error('Query failed: '+rr.status);
+    var rd=await rr.json();
+    if(!rd.results||!rd.results.length){$('ragAnswer').innerHTML='<span class="text-orange">No relevant documents found.</span>';return}
+    var ctx=rd.results.map(function(r,i){return'[Doc '+(i+1)+': '+r.document_title+']\n'+r.content}).join('\n\n');
+    $('ragAnswer').innerHTML='<span class="text-muted">Asking AI...</span>';
+    var ar=await fetch(ORCH_URL+'/api/agent/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_input:'Based on documents, answer: "'+query+'"\n\nDocuments:\n'+ctx})});
+    if(!ar.ok)throw new Error('Agent failed: '+ar.status);
+    var ad=await ar.json();
+    var html='<div style="color:var(--accent-light);margin-bottom:6px"><strong>Q:</strong> '+esc(query)+'</div>';
+    html+='<div style="color:var(--green);margin-bottom:10px"><strong>A:</strong> '+esc(ad.final_response)+'</div>';
+    html+='<div class="text-xs text-muted"><strong>Sources:</strong><br>';
+    rd.results.forEach(function(r,i){html+='  '+(i+1)+'. <strong>'+esc(r.document_title)+'</strong> — "'+esc(r.content.substring(0,80))+'..."<br>'});
+    html+='</div>';$('ragAnswer').innerHTML=html;
+  }catch(e){$('ragAnswer').innerHTML='<span class="text-red">Error: '+esc(e.message)+'</span>'}
 }
 
-async function askRagQuestion() {
-  const query = document.getElementById('ragQuery').value.trim();
-  if (!query) return;
-  const answerDiv = document.getElementById('ragAnswer');
-  answerDiv.innerHTML = '<em style="color:var(--muted)">Searching documents...</em>';
-
-  try {
-    const ragRes = await fetch(`${RAG_URL}/api/query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, top_k: 3 }),
-    });
-    if (!ragRes.ok) throw new Error('Query failed: ' + ragRes.status);
-    const ragData = await ragRes.json();
-
-    if (!ragData.results || ragData.results.length === 0) {
-      answerDiv.innerHTML = '<span style="color:var(--orange)">No relevant documents found. Upload some documents first.</span>';
-      return;
-    }
-
-    const contextParts = ragData.results.map((r, i) => `[Doc ${i + 1}: ${r.document_title}]\n${r.content}`).join('\n\n');
-
-    answerDiv.innerHTML = '<em style="color:var(--muted)">Asking AI to answer based on documents...</em>';
-
-    const agentRes = await fetch(`${ORCHESTRATOR_URL}/api/agent/run`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_input: `Based on the following documents, answer this question: "${query}"\n\nDocuments:\n${contextParts}` }),
-    });
-    if (!agentRes.ok) throw new Error('Agent failed: ' + agentRes.status);
-    const agentData = await agentRes.json();
-
-    let html = `<div style="color:var(--accent);margin-bottom:.5rem"><strong>Q:</strong> ${escapeHtml(query)}</div>`;
-    html += `<div style="color:var(--green);margin-bottom:.75rem"><strong>A:</strong> ${escapeHtml(agentData.final_response)}</div>`;
-    html += `<div style="font-size:.8rem;color:var(--muted)"><strong>Sources:</strong><br>`;
-    ragData.results.forEach((r, i) => {
-      html += `  ${i + 1}. <strong>${escapeHtml(r.document_title)}</strong> — "${escapeHtml(r.content.substring(0, 100))}..."<br>`;
-    });
-    html += `</div>`;
-    answerDiv.innerHTML = html;
-
-  } catch (e) {
-    answerDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
-  }
-}
-
-(function () {
-  const dropZone = document.getElementById('ragDropZone');
-  if (!dropZone) return;
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; });
-  dropZone.addEventListener('dragleave', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--border)'; });
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.style.borderColor = 'var(--border)';
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      const input = document.getElementById('ragFileInput');
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-      uploadRagFile(input);
-    }
+// RAG drag-drop
+(function(){
+  var dz=$('ragDropZone');if(!dz)return;
+  dz.addEventListener('dragover',function(e){e.preventDefault();dz.style.borderColor='var(--accent)'});
+  dz.addEventListener('dragleave',function(e){e.preventDefault();dz.style.borderColor='var(--border)'});
+  dz.addEventListener('drop',function(e){
+    e.preventDefault();dz.style.borderColor='var(--border)';
+    var file=e.dataTransfer.files[0];
+    if(file){var input=$('ragFileInput');var dt=new DataTransfer();dt.items.add(file);input.files=dt.files;uploadRagFile(input)}
   });
 })();
 
-// ── API Usage & Cost ──
-
-const USAGE_API = '/api/usage';
-
-function usageRangeParams() {
-  const range = document.getElementById('usageRange').value;
-  const now = new Date();
-  if (range === '24h') return `start=${new Date(now.getTime() - 24 * 3600 * 1000).toISOString()}`;
-  if (range === '7d') return `start=${new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString()}`;
-  if (range === '30d') return `start=${new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString()}`;
-  return '';
+// ── USAGE ──
+function usageRangeParams(){
+  var range=$('usageRange').value,now=new Date();
+  if(range==='24h')return'start='+new Date(now.getTime()-24*3600*1000).toISOString();
+  if(range==='7d')return'start='+new Date(now.getTime()-7*24*3600*1000).toISOString();
+  if(range==='30d')return'start='+new Date(now.getTime()-30*24*3600*1000).toISOString();
+  return'';
+}
+async function loadUsage(){
+  try{
+    var params=usageRangeParams();
+    var g=$('usageRange').value==='24h'?'hour':'day';
+    var _a=await Promise.all([fetch('/api/usage/summary?'+params),fetch('/api/usage/trend?'+params+(params?'&':'')+'granularity='+g),fetch('/api/usage/events?limit=25&'+params)]);
+    var summary=await _a[0].json();var trend=await _a[1].json();var events=await _a[2].json();
+    var t=summary.totals;
+    $('usageKpis').innerHTML=[
+      {l:'Total Cost',v:fmtInr(t.cost),c:'purple'},
+      {l:'Input Tokens',v:fmtNum(t.llm_input_tokens),c:'blue'},
+      {l:'Output Tokens',v:fmtNum(t.llm_output_tokens),c:'green'},
+      {l:'Total Calls',v:fmtNum(t.calls),c:'orange'},
+      {l:'Avg Cost/Call',v:fmtInr(t.avg_cost_per_call),c:'purple'},
+      {l:'Errors',v:fmtNum(t.errors),c:'red'},
+    ].map(function(k){return'<div class="kpi-card"><div class="kpi-icon '+k.c+'"> </div><div><div class="kpi-label">'+k.l+'</div><div class="kpi-value">'+k.v+'</div></div></div>'}).join('');
+    $('usageCallsBadge').textContent=fmtNum(t.calls)+' calls';
+    $('usageTrend').innerHTML=renderCostChart(trend,g);
+    $('usageByModel').innerHTML=breakdownTable(summary.by_model,'model');
+    $('usageByOperation').innerHTML=breakdownTable(summary.by_operation,'operation');
+    $('usageEvents').innerHTML=events.length?'<div class="table-wrap"><table><tr><th>Time</th><th>Service</th><th>Operation</th><th>Model</th><th>In</th><th>Out</th><th>Cost</th><th>Status</th></tr>'+events.map(function(e){return'<tr><td class="text-xs text-muted">'+new Date(e.recorded_at).toLocaleString()+'</td><td>'+e.service+'</td><td>'+e.operation+'</td><td>'+esc(e.model||'-')+'</td><td>'+fmtNum(e.input_units)+'</td><td>'+fmtNum(e.output_units)+'</td><td>'+fmtInr(e.cost)+'</td><td class="'+(e.status==='error'?'text-red':'text-green')+'">'+e.status+'</td></tr>'}).join('')+'</table></div>':'<div class="text-muted" style="text-align:center;padding:1rem">No recent calls</div>';
+  }catch(e){$('usageKpis').innerHTML='<div class="text-muted" style="grid-column:1/-1;text-align:center;padding:1rem">Error loading usage</div>'}
+}
+function renderCostChart(trend,g){
+  if(!trend||!trend.length)return'<div class="cost-empty">No usage data for the selected period</div>';
+  var isHour=g==='hour';
+  var maxCost=Math.max.apply(null,trend.map(function(p){return p.cost}))||0.0001;
+  var maxCalls=Math.max.apply(null,trend.map(function(p){return p.calls}))||0;
+  var ticks=5,grid=[],yAxis=[];
+  for(var i=ticks-1;i>=0;i--){
+    var val=maxCost*(i/(ticks-1));
+    yAxis.push('<span style="bottom:'+(i*100/(ticks-1))+'%">'+fmtInrAxis(val)+'</span>');
+    grid.push('<div style="bottom:'+(i*100/(ticks-1))+'%"></div>');
+  }
+  var cols=trend.map(function(p){
+    var h=Math.max(2,(p.cost/maxCost)*100);
+    var d=new Date(p.bucket);
+    var label=isHour?fmtHourLabel(d):fmtDayLabel(d);
+    var tip='<div class="cost-tip"><div>'+esc(fmtFullLabel(p.bucket,isHour))+'</div><div>Cost: <b>'+fmtInr(p.cost)+'</b></div><div>Calls: '+fmtNum(p.calls)+'</div><div>In: '+fmtNum(p.input_units)+' &nbsp; Out: '+fmtNum(p.output_units)+'</div></div>';
+    return'<div class="cost-col" title="'+esc(p.bucket)+'"><div class="cost-bar" style="height:'+h+'%">'+tip+'</div></div>';
+  }).join('');
+  var xAxis=trend.map(function(p){
+    var d=new Date(p.bucket);
+    return'<span>'+esc(isHour?fmtHourLabel(d):fmtDayLabel(d))+'</span>';
+  }).join('');
+  return'<div class="cost-chart"><div class="cost-yaxis">'+yAxis.join('')+'</div><div class="cost-plot"><div class="cost-gridlines">'+grid.join('')+'</div><div class="cost-bars">'+cols+'</div></div><div class="cost-xaxis">'+xAxis+'</div></div>'+(maxCalls>0?'<div class="text-xs text-muted" style="margin-top:6px">Peak: '+fmtInr(maxCost)+' on '+esc(fmtFullLabel(trend[trend.length-1].bucket,isHour))+'</div>':'');
+}
+function fmtInrAxis(v){
+  if(v>=1)return'₹'+Number(v).toFixed(2);
+  if(v>=0.01)return'₹'+Number(v).toFixed(3);
+  return'₹'+Number(v).toFixed(4);
+}
+function fmtDayLabel(d){
+  var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return m[d.getMonth()]+' '+d.getDate();
+}
+function fmtHourLabel(d){
+  var h=d.getHours();
+  return(h<10?'0':'')+h+':00';
+}
+function fmtFullLabel(bucket,isHour){
+  var d=new Date(bucket);
+  if(isHour)return fmtDayLabel(d)+' '+fmtHourLabel(d);
+  return fmtDayLabel(d)+' '+d.getFullYear();
+}
+function breakdownTable(rows,nameKey){
+  if(!rows||!rows.length)return'<div class="text-muted" style="text-align:center;padding:1rem">No data</div>';
+  return'<div class="table-wrap"><table><tr><th>'+nameKey+'</th><th>Calls</th><th>Input</th><th>Output</th><th>Cost</th></tr>'+rows.map(function(r){return'<tr><td>'+esc(r[nameKey])+'</td><td>'+fmtNum(r.calls)+'</td><td>'+fmtNum(r.input_units)+'</td><td>'+fmtNum(r.output_units)+'</td><td>'+fmtInr(r.cost)+'</td></tr>'}).join('')+'</table></div>';
 }
 
-async function loadUsage() {
-  try {
-    const params = usageRangeParams();
-    const granularity = document.getElementById('usageRange').value === '24h' ? 'hour' : 'day';
-    const [summaryRes, trendRes, eventsRes] = await Promise.all([
-      fetch(`${USAGE_API}/summary?${params}`),
-      fetch(`${USAGE_API}/trend?${params}${params ? '&' : ''}granularity=${granularity}`),
-      fetch(`${USAGE_API}/events?limit=25&${params}`),
-    ]);
-    const summary = await summaryRes.json();
-    const trend = await trendRes.json();
-    const events = await eventsRes.json();
-    renderUsageKpis(summary);
-    renderUsageTrend(trend);
-    renderUsageBreakdowns(summary);
-    renderUsageEvents(events);
-    document.getElementById('usageCallsBadge').textContent = summary.totals.calls + ' calls';
-  } catch (e) {
-    const box = document.getElementById('usageKpis');
-    if (box) box.innerHTML = '<div class="empty" style="grid-column:1/-1">Error loading usage data</div>';
+// ── CHANNELS ──
+function channelRangeParams(){
+  var range=$('channelRange').value,now=new Date();
+  if(range==='24h')return'start='+new Date(now.getTime()-24*3600*1000).toISOString();
+  if(range==='7d')return'start='+new Date(now.getTime()-7*24*3600*1000).toISOString();
+  if(range==='30d')return'start='+new Date(now.getTime()-30*24*3600*1000).toISOString();
+  return'';
+}
+async function loadChannelStats(){
+  var params=channelRangeParams();
+  try{
+    var _a=await Promise.all([fetch(GW_URL+'/api/channels/stats?'+params),fetch(GW_URL+'/api/channels/events?limit=25&'+params)]);
+    if(!_a[0].ok)throw new Error('stats '+_a[0].status);
+    var stats=await _a[0].json(),events=await _a[1].json();
+    var t=stats.totals;
+    $('channelKpis').innerHTML=[
+      {l:'Accepted',v:fmtNum(t.accepted),c:'green'},
+      {l:'Blocked',v:fmtNum(t.blocked),c:'red'},
+      {l:'Rate Limited',v:fmtNum(t.rate_limited),c:'orange'},
+      {l:'PII Redactions',v:fmtNum(t.redactions),c:'purple'},
+    ].map(function(k){return'<div class="kpi-card"><div class="kpi-icon '+k.c+'"> </div><div><div class="kpi-label">'+k.l+'</div><div class="kpi-value">'+k.v+'</div></div></div>'}).join('');
+    $('channelByChannel').innerHTML=stats.by_channel&&stats.by_channel.length?'<div class="table-wrap"><table><tr><th>Channel</th><th>Calls</th></tr>'+stats.by_channel.map(function(r){return'<tr><td>'+esc(r.channel)+'</td><td>'+fmtNum(r.calls)+'</td></tr>'}).join('')+'</table></div>':'<div class="text-muted" style="text-align:center;padding:1rem">No traffic</div>';
+    var sc={'accepted':'text-green','blocked':'text-red','rate_limited':'text-orange'};
+    $('channelEvents').innerHTML=events.length?'<div class="table-wrap"><table><tr><th>Time</th><th>Channel</th><th>Status</th><th>Red.</th><th>Reason</th><th>Req ID</th></tr>'+events.map(function(e){return'<tr><td class="text-xs text-muted">'+new Date(e.recorded_at).toLocaleString()+'</td><td>'+esc(e.channel)+'</td><td class="'+(sc[e.status]||'')+'">'+e.status+'</td><td>'+fmtNum(e.redactions_count)+'</td><td class="text-xs">'+esc(e.reason||e.violation_category||'—')+'</td><td class="text-xs text-muted">'+esc((e.request_id||'').substring(0,8))+'</td></tr>'}).join('')+'</table></div>':'<div class="text-muted" style="text-align:center;padding:1rem">No events</div>';
+  }catch(e){$('channelKpis').innerHTML='<div class="text-muted" style="grid-column:1/-1;text-align:center;padding:1rem">Error loading channel data</div>'}
+}
+
+// ── TOOLS ──
+async function loadTools(){
+  try{
+    var r=await fetch(ORCH_URL+'/api/tools');
+    if(r.ok){
+      var tools=await r.json();
+      var items=Array.isArray(tools)?tools:tools.tools||[];
+      $('tools-list').innerHTML=items.length?'<div class="table-wrap"><table><tr><th>#</th><th>Tool Name</th><th>Description</th><th>Category</th></tr>'+items.map(function(t,i){return'<tr><td>'+(i+1)+'</td><td><strong>'+esc(t.name||t.tool_name||'')+'</strong></td><td class="text-sm text-secondary">'+esc(t.description||'—')+'</td><td><span class="badge badge-pending">'+esc(t.category||'general')+'</span></td></tr>'}).join('')+'</table></div>':'<div class="text-muted" style="text-align:center;padding:1rem">No tools registered</div>';
+    }
+  }catch(e){$('tools-list').innerHTML='<div class="text-muted" style="text-align:center;padding:1rem">Tool registry unavailable</div>'}
+}
+
+// ── GMAIL ──
+async function loadGmailInbox(){
+  $('gmail-inbox').innerHTML='<div class="text-muted" style="padding:2rem;text-align:center">Loading...</div>';
+  var query=$('gmail-search').value.trim();
+  try{
+    var r=await fetch(ORCH_URL+'/api/email/messages?max_results=20'+(query?'&query='+encodeURIComponent(query):''));
+    if(!r.ok){throw new Error(r.status+' '+(await r.text()).substring(0,100))}
+    var d=await r.json();
+    var msgs=d.data||[];
+    if(!msgs.length){$('gmail-inbox').innerHTML='<div class="text-muted" style="padding:2rem;text-align:center">No emails found</div>';return}
+    $('gmail-inbox').innerHTML=msgs.map(function(m){
+      var labelClass='';
+      var labels='';
+      if(m.label_ids){
+        var important=m.label_ids.indexOf('IMPORTANT')>=0||m.label_ids.indexOf('STARRED')>=0;
+        labels+=important?' &#11088;':'';
+        labels+=m.label_ids.indexOf('UNREAD')>=0?' <span class="badge badge-pending" style="font-size:9px">UNREAD</span>':'';
+      }
+      return'<div style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s" onclick="loadGmailMessage(\''+m.id+'\')" onmouseover="this.style.background=\'var(--surface-hover)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><strong style="font-size:13px">'+esc(m.from)+'</strong><span class="text-xs text-muted">'+esc(m.date||'')+'</span></div><div style="font-size:13px;margin-top:4px">'+labels+esc(m.subject)+'</div><div class="text-xs text-muted" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(m.snippet||'')+'</div></div>';
+    }).join('');
+    var profile=await fetch(ORCH_URL+'/api/email/profile').then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+    if(profile&&profile.data){
+      $('kpi-gmail-email').textContent=profile.data.email||'—';
+      $('kpi-gmail-total').textContent=fmtNum(profile.data.messages_total||0);
+      $('kpi-gmail-status').innerHTML='<span class="text-green">&#9989; Connected</span>';
+    }
+  }catch(e){
+    $('gmail-inbox').innerHTML='<div class="text-muted" style="padding:2rem;text-align:center">'+esc(e.message)+'</div>';
+    $('kpi-gmail-status').innerHTML='<span class="text-red">Not configured</span>';
   }
 }
 
-function fmtInr(v) { return '₹' + Number(v || 0).toFixed(4); }
-function fmtNum(v) { return Number(v || 0).toLocaleString(); }
-
-function renderUsageKpis(summary) {
-  const t = summary.totals;
-  const kpis = [
-    { label: 'Total cost', value: fmtInr(t.cost) },
-    { label: 'LLM input tokens', value: fmtNum(t.llm_input_tokens) },
-    { label: 'LLM output tokens', value: fmtNum(t.llm_output_tokens) },
-    { label: 'Total calls', value: fmtNum(t.calls) },
-    { label: 'Avg cost / call', value: fmtInr(t.avg_cost_per_call) },
-    { label: 'Errors', value: fmtNum(t.errors) },
-  ];
-  document.getElementById('usageKpis').innerHTML = kpis.map(k => `
-    <div class="card usage-kpi">
-      <div class="usage-kpi-label">${k.label}</div>
-      <div class="usage-kpi-value">${k.value}</div>
-    </div>`).join('');
+async function loadGmailMessage(id){
+  $('gmail-preview').innerHTML='<div class="text-muted">Loading...</div>';
+  try{
+    var r=await fetch(ORCH_URL+'/api/email/messages/'+id);
+    if(!r.ok)throw new Error('Failed: '+r.status);
+    var d=await r.json();
+    var m=d.data||{};
+    $('gmail-preview').innerHTML='<div style="margin-bottom:10px"><strong>From:</strong> '+esc(m.from||'')+'</div><div style="margin-bottom:10px"><strong>To:</strong> '+esc(m.to||'')+'</div><div style="margin-bottom:10px"><strong>Subject:</strong> '+esc(m.subject||'')+'</div><div style="margin-bottom:10px"><strong>Date:</strong> '+esc(m.date||'')+'</div><hr style="border-color:var(--border);margin:10px 0"><div style="font-size:13px;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow-y:auto">'+esc(m.body||m.snippet||'')+'</div>';
+  }catch(e){$('gmail-preview').innerHTML='<div class="text-red">Error: '+esc(e.message)+'</div>'}
 }
 
-function renderUsageTrend(trend) {
-  const el = document.getElementById('usageTrend');
-  if (!trend || !trend.length) {
-    el.innerHTML = '<div class="empty" style="width:100%">No usage in this period</div>';
-    return;
-  }
-  const maxCost = Math.max.apply(null, trend.map(p => p.cost)) || 0.0001;
-  el.innerHTML = trend.map(p => `
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%">
-      <div class="usage-bar" title="${escapeHtml(p.bucket)} — ${fmtInr(p.cost)} (${fmtNum(p.calls)} calls)"
-           style="height:${Math.max(2, (p.cost / maxCost) * 100)}%"></div>
-    </div>`).join('');
+async function sendGmail(){
+  var to=$('gmail-to').value.trim();
+  var cc=$('gmail-cc').value.trim();
+  var subject=$('gmail-subject').value.trim();
+  var body=$('gmail-body').value.trim();
+  if(!to||!subject||!body){$('gmail-send-status').innerHTML='<span class="text-red">Please fill To, Subject, and Body</span>';return}
+  $('gmail-send-status').innerHTML='<span class="text-muted">Sending...</span>';
+  try{
+    var params='to='+encodeURIComponent(to)+'&subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+    if(cc)params+='&cc='+encodeURIComponent(cc);
+    var r=await fetch(ORCH_URL+'/api/email/send?'+params,{method:'POST'});
+    if(!r.ok)throw new Error((await r.text()).substring(0,100));
+    var d=await r.json();
+    $('gmail-send-status').innerHTML='<span class="text-green">&#9989; Sent! ID: '+esc(d.data&&d.data.id?d.data.id:'ok')+'</span>';
+    $('gmail-to').value='';$('gmail-cc').value='';$('gmail-subject').value='';$('gmail-body').value='';
+    setTimeout(loadGmailInbox,1500);
+  }catch(e){$('gmail-send-status').innerHTML='<span class="text-red">Error: '+esc(e.message)+'</span>'}
 }
 
-function renderUsageBreakdowns(summary) {
-  document.getElementById('usageByModel').innerHTML = breakdownTable(summary.by_model, 'model');
-  document.getElementById('usageByOperation').innerHTML = breakdownTable(summary.by_operation, 'operation');
-}
-
-function breakdownTable(rows, nameKey) {
-  if (!rows || !rows.length) return '<div class="empty">No data</div>';
-  return `<table class="doc-table">
-    <tr><th>${nameKey}</th><th>calls</th><th>input</th><th>output</th><th>cost</th></tr>
-    ${rows.map(r => `<tr>
-      <td>${escapeHtml(r[nameKey])}</td>
-      <td>${fmtNum(r.calls)}</td>
-      <td>${fmtNum(r.input_units)}</td>
-      <td>${fmtNum(r.output_units)}</td>
-      <td>${fmtInr(r.cost)}</td>
-    </tr>`).join('')}
-  </table>`;
-}
-
-function renderUsageEvents(events) {
-  const el = document.getElementById('usageEvents');
-  if (!events || !events.length) {
-    el.innerHTML = '<div class="empty">No recent calls</div>';
-    return;
-  }
-  el.innerHTML = `<table class="doc-table">
-    <tr><th>Time</th><th>Service</th><th>Operation</th><th>Model</th><th>In</th><th>Out</th><th>Cost</th><th>Status</th></tr>
-    ${events.map(e => `<tr>
-      <td style="font-size:.75rem;color:var(--muted)">${new Date(e.recorded_at).toLocaleString()}</td>
-      <td>${e.service}</td>
-      <td>${e.operation}</td>
-      <td>${escapeHtml(e.model || '-')}</td>
-      <td>${fmtNum(e.input_units)}</td>
-      <td>${fmtNum(e.output_units)}</td>
-      <td>${fmtInr(e.cost)}</td>
-      <td style="color:${e.status === 'error' ? 'var(--red)' : 'var(--green)'}">${e.status}</td>
-    </tr>`).join('')}
-  </table>`;
-}
-
-// ── Channels & Guardrails ──
-
-function channelRangeParams() {
-  const range = document.getElementById('channelRange').value;
-  const now = new Date();
-  if (range === '24h') return `start=${new Date(now.getTime() - 24 * 3600 * 1000).toISOString()}`;
-  if (range === '7d') return `start=${new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString()}`;
-  if (range === '30d') return `start=${new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString()}`;
-  return '';
-}
-
-async function loadChannelStats() {
-  const params = channelRangeParams();
-  try {
-    const [statsRes, eventsRes] = await Promise.all([
-      fetch(`${GATEWAY_URL}/api/channels/stats?${params}`),
-      fetch(`${GATEWAY_URL}/api/channels/events?limit=25&${params}`),
-    ]);
-    if (!statsRes.ok) throw new Error('stats ' + statsRes.status);
-    const stats = await statsRes.json();
-    const events = await eventsRes.json();
-    renderChannelKpis(stats.totals);
-    renderChannelByChannel(stats.by_channel);
-    renderChannelEvents(events);
-  } catch (e) {
-    const box = document.getElementById('channelKpis');
-    if (box) box.innerHTML = '<div class="empty" style="grid-column:1/-1">Error loading channel data</div>';
+// ── CALENDAR ──
+async function loadCalendar(){
+  $('calendar-list').innerHTML='<div class="text-muted" style="padding:2rem;text-align:center">Loading...</div>';
+  try{
+    var health=await fetch(ORCH_URL+'/api/calendar/health').then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+    if(!health||!health.enabled){
+      $('calendar-list').innerHTML='<div class="text-muted" style="padding:2rem;text-align:center">Calendar not configured. Set CALENDAR_ENABLED=true in orchestrator/.env</div>';
+      $('kpi-cal-status').innerHTML='<span class="text-red">Not configured</span>';
+      return;
+    }
+    $('kpi-cal-provider').textContent=health.provider||'—';
+    $('kpi-cal-status').innerHTML=health.healthy?'<span class="text-green">&#9989; Connected</span>':'<span class="text-red">Unreachable</span>';
+    var r=await fetch(ORCH_URL+'/api/calendar/events?max_results=20');
+    if(!r.ok){throw new Error(r.status+' '+(await r.text()).substring(0,100))}
+    var d=await r.json();
+    var events=(d.data&&d.data.events)||[];
+    $('kpi-cal-total').textContent=fmtNum(events.length);
+    if(!events.length){$('calendar-list').innerHTML='<div class="text-muted" style="padding:2rem;text-align:center">No upcoming meetings</div>';return}
+    $('calendar-list').innerHTML=events.map(function(ev){
+      return'<div style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s" onclick="loadCalendarDetail(\''+ev.id+'\')" onmouseover="this.style.background=\'var(--surface-hover)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><strong style="font-size:13px">'+esc(ev.title||'Meeting')+'</strong><span class="text-xs text-muted">'+esc(new Date(ev.start_at).toLocaleString())+'</span></div><div class="text-xs text-muted" style="margin-top:2px">'+esc((ev.attendees||[]).join(', ')||'no attendees')+'</div></div>';
+    }).join('');
+  }catch(e){
+    $('calendar-list').innerHTML='<div class="text-muted" style="padding:2rem;text-align:center">'+esc(e.message)+'</div>';
+    $('kpi-cal-status').innerHTML='<span class="text-red">Error</span>';
   }
 }
 
-function renderChannelKpis(t) {
-  const items = [
-    { label: 'Accepted', value: fmtNum(t.accepted), cls: 'doc-status-ready' },
-    { label: 'Blocked', value: fmtNum(t.blocked), cls: 'doc-status-failed' },
-    { label: 'Rate limited', value: fmtNum(t.rate_limited), cls: 'doc-status-processing' },
-    { label: 'PII redactions', value: fmtNum(t.redactions), cls: '' },
-  ];
-  document.getElementById('channelKpis').innerHTML = items.map(k => `
-    <div class="card usage-kpi">
-      <div class="usage-kpi-label">${k.label}</div>
-      <div class="usage-kpi-value ${k.cls}">${k.value}</div>
-    </div>`).join('');
+async function loadCalendarDetail(id){
+  $('cal-detail').innerHTML='<div class="text-muted">Loading...</div>';
+  try{
+    var r=await fetch(ORCH_URL+'/api/calendar/events/'+id);
+    if(!r.ok)throw new Error('Failed: '+r.status);
+    var d=await r.json();
+    var ev=d.data&&d.data.event?d.data.event:{};
+    $('cal-detail').innerHTML='<div style="margin-bottom:10px"><strong>Title:</strong> '+esc(ev.title||'')+'</div><div style="margin-bottom:10px"><strong>Start:</strong> '+esc(new Date(ev.start_at).toLocaleString())+'</div><div style="margin-bottom:10px"><strong>End:</strong> '+esc(new Date(ev.end_at).toLocaleString())+'</div><div style="margin-bottom:10px"><strong>Attendees:</strong> '+esc((ev.attendees||[]).join(', ')||'—')+'</div><div style="margin-bottom:10px"><strong>Status:</strong> '+esc(ev.status||'—')+'</div><div style="margin-bottom:10px"><strong>Provider:</strong> '+esc(ev.provider||'—')+'</div>'+(ev.link?'<div style="margin-bottom:10px"><a href="'+escAttr(ev.link)+'" target="_blank">Open in Google Calendar</a></div>':'')+'<div class="flex-row"><button class="btn btn-sm" onclick="deleteCalendarEvent(\''+id+'\')">Cancel Meeting</button></div><div id="cal-detail-status" class="mt text-sm"></div>';
+  }catch(e){$('cal-detail').innerHTML='<div class="text-red">Error: '+esc(e.message)+'</div>'}
 }
 
-function renderChannelByChannel(rows) {
-  const el = document.getElementById('channelByChannel');
-  if (!rows || !rows.length) {
-    el.innerHTML = '<div class="empty">No channel traffic</div>';
-    return;
-  }
-  el.innerHTML = `<table class="doc-table">
-    <tr><th>Channel</th><th>calls</th></tr>
-    ${rows.map(r => `<tr><td>${escapeHtml(r.channel)}</td><td>${fmtNum(r.calls)}</td></tr>`).join('')}
-  </table>`;
+async function createCalendarEvent(){
+  var title=$('cal-title').value.trim();
+  var start=$('cal-start').value;
+  var end=$('cal-end').value;
+  var attendees=$('cal-attendees').value.trim();
+  if(!title||!start){$('cal-create-status').innerHTML='<span class="text-red">Please fill Title and Start</span>';return}
+  $('cal-create-status').innerHTML='<span class="text-muted">Creating...</span>';
+  try{
+    var params='title='+encodeURIComponent(title)+'&start_at='+encodeURIComponent(start);
+    if(end)params+='&end_at='+encodeURIComponent(end);
+    if(attendees)params+='&attendees='+encodeURIComponent(attendees);
+    var r=await fetch(ORCH_URL+'/api/calendar/events?'+params,{method:'POST'});
+    if(!r.ok)throw new Error((await r.text()).substring(0,100));
+    $('cal-create-status').innerHTML='<span class="text-green">&#9989; Meeting created</span>';
+    $('cal-title').value='';$('cal-start').value='';$('cal-end').value='';$('cal-attendees').value='';
+    setTimeout(loadCalendar,800);
+  }catch(e){$('cal-create-status').innerHTML='<span class="text-red">Error: '+esc(e.message)+'</span>'}
 }
 
-function renderChannelEvents(events) {
-  const el = document.getElementById('channelEvents');
-  if (!events || !events.length) {
-    el.innerHTML = '<div class="empty">No recent events</div>';
-    return;
-  }
-  const statusCls = { accepted: 'doc-status-ready', blocked: 'doc-status-failed', rate_limited: 'doc-status-processing' };
-  el.innerHTML = `<table class="doc-table">
-    <tr><th>Time</th><th>Channel</th><th>Status</th><th>Red.</th><th>Reason</th><th>Request</th></tr>
-    ${events.map(e => `<tr>
-      <td style="font-size:.75rem;color:var(--muted)">${new Date(e.recorded_at).toLocaleString()}</td>
-      <td>${escapeHtml(e.channel)}</td>
-      <td class="${statusCls[e.status] || ''}">${e.status}</td>
-      <td>${fmtNum(e.redactions_count)}</td>
-      <td style="font-size:.78rem">${escapeHtml(e.reason || e.violation_category || '—')}</td>
-      <td style="font-size:.75rem;color:var(--muted)">${escapeHtml((e.request_id || '').substring(0, 8))}</td>
-    </tr>`).join('')}
-  </table>`;
+async function deleteCalendarEvent(id){
+  if(!confirm('Cancel this meeting?'))return;
+  var st=$('cal-detail-status');if(st)st.innerHTML='<span class="text-muted">Cancelling...</span>';
+  try{
+    var r=await fetch(ORCH_URL+'/api/calendar/events/'+id,{method:'DELETE'});
+    if(!r.ok)throw new Error((await r.text()).substring(0,100));
+    if(st)st.innerHTML='<span class="text-green">&#9989; Cancelled</span>';
+    $('cal-detail').innerHTML='<div class="text-muted">Meeting cancelled</div>';
+    setTimeout(loadCalendar,800);
+  }catch(e){if(st)st.innerHTML='<span class="text-red">Error: '+esc(e.message)+'</span>'}
 }
 
-loadTasks();
-listRagDocs();
-loadUsage();
-loadChannelStats();
-setInterval(loadTasks, 15000);
-setInterval(loadUsage, 30000);
-setInterval(loadChannelStats, 30000);
+// ── THEME ──
+function toggleTheme(){
+  var html=document.documentElement;
+  var current=html.getAttribute('data-theme')||'dark';
+  var next=current==='dark'?'light':'dark';
+  html.setAttribute('data-theme',next);
+  localStorage.setItem('ai_employee_theme',next);
+  $('theme-toggle').innerHTML=next==='dark'?'&#9728;':'&#9790;';
+}
+(function(){
+  var saved=localStorage.getItem('ai_employee_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',saved);
+  var btn=$('theme-toggle');
+  if(btn)btn.innerHTML=saved==='dark'?'&#9728;':'&#9790;';
+})();
+
+// ── INIT ──
+loadOverview();loadTasks();loadMemoryStats();listRagDocs();loadUsage();loadChannelStats();loadTools();loadCalendar();
+initVoicePanel();
+setInterval(loadTasks,15000);setInterval(loadUsage,30000);setInterval(loadChannelStats,30000);setInterval(loadOverview,30000);setInterval(loadMemoryStats,60000);
 </script>
 </body>
 </html>

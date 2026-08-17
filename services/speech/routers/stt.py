@@ -23,6 +23,7 @@ async def speech_to_text(
     file: UploadFile = File(...),
     language_code: str = Form(default="unknown"),
     mode: str = Form(default="transcribe"),
+    model: str = Form(default=None),
     with_word_timestamps: bool = Form(default=False),
     provider: SarvamSTTProvider = Depends(get_stt_provider),
 ):
@@ -38,23 +39,26 @@ async def speech_to_text(
         file_size=len(audio_bytes),
         filename=file.filename,
         mode=mode,
+        model=model,
         with_word_timestamps=with_word_timestamps,
     )
     seconds = estimate_audio_seconds(audio_bytes)
     start = time.perf_counter()
+    effective_model = model or provider._model
 
     try:
         result = await provider.transcribe(
             audio_bytes,
             language_code if language_code != "unknown" else None,
             mode=mode,
+            model=model,
         )
         duration_ms = (time.perf_counter() - start) * 1000
         await get_usage_recorder().record(UsageRecord(
             service="speech",
             category="speech",
             operation="stt",
-            model=provider._model,
+            model=effective_model,
             unit="audio_seconds",
             input_units=seconds,
             output_units=0,
@@ -75,7 +79,7 @@ async def speech_to_text(
             service="speech",
             category="speech",
             operation="stt",
-            model=provider._model,
+            model=effective_model,
             unit="audio_seconds",
             input_units=seconds,
             status="error",
@@ -106,12 +110,14 @@ async def speech_to_text_websocket(websocket: WebSocket):
 
     language_code: str | None = None
     mode = "transcribe"
+    model: str | None = None
     with_word_timestamps = False
 
     try:
         config = await websocket.receive_json()
         language_code = config.get("language_code") or None
         mode = config.get("mode", "transcribe")
+        model = config.get("model") or None
         with_word_timestamps = bool(config.get("with_word_timestamps", False))
 
         while True:
@@ -130,14 +136,14 @@ async def speech_to_text_websocket(websocket: WebSocket):
             start = time.perf_counter()
             try:
                 result = await provider.transcribe(
-                    audio_bytes, language_code=language_code, mode=mode
+                    audio_bytes, language_code=language_code, mode=mode, model=model
                 )
                 duration_ms = (time.perf_counter() - start) * 1000
                 await get_usage_recorder().record(UsageRecord(
                     service="speech",
                     category="speech",
                     operation="stt",
-                    model=provider._model,
+                    model=model or provider._model,
                     unit="audio_seconds",
                     input_units=estimate_audio_seconds(audio_bytes),
                     duration_ms=round(duration_ms, 2),
@@ -158,7 +164,7 @@ async def speech_to_text_websocket(websocket: WebSocket):
                     service="speech",
                     category="speech",
                     operation="stt",
-                    model=provider._model,
+                    model=model or provider._model,
                     unit="audio_seconds",
                     input_units=estimate_audio_seconds(audio_bytes),
                     status="error",

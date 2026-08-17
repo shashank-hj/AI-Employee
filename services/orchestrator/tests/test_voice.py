@@ -174,7 +174,9 @@ class TestVoiceService:
 
         response = await service.process_text_turn(VoiceTextTurnRequest(text="नमस्ते"))
         assert response.detected_language == "hi-IN"
-        speech.synthesize.assert_awaited_once_with("Hello!", language_code="hi-IN")
+        speech.synthesize.assert_awaited_once_with(
+            "Hello!", language_code="hi-IN", model=None, speaker=None
+        )
 
 
 class TestVoiceEndpoints:
@@ -188,6 +190,41 @@ class TestVoiceEndpoints:
         data = response.json()
         assert data["status"] == "ok"
         assert data["services"]["speech"] == "up"
+
+    @pytest.mark.asyncio
+    async def test_models_endpoint_returns_catalog(self, client):
+        from orchestrator.container import get_speech_client
+
+        catalog = {
+            "stt": {"models": ["saaras:v3"], "default": "saaras:v3"},
+            "tts": {
+                "models": ["bulbul:v2", "bulbul:v3"],
+                "speakers": {"bulbul:v2": ["anushka"], "bulbul:v3": ["shubh"]},
+                "default_speaker": {"bulbul:v2": "anushka", "bulbul:v3": "shubh"},
+            },
+        }
+        with patch.object(
+            get_speech_client(), "list_models", new=AsyncMock(return_value=catalog)
+        ):
+            response = await client.get("/api/voice/models")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["stt"]["models"] == ["saaras:v3"]
+        assert data["tts"]["default_speaker"]["bulbul:v3"] == "shubh"
+
+    @pytest.mark.asyncio
+    async def test_models_endpoint_falls_back_when_speech_down(self):
+        from orchestrator.services.speech_client import SpeechClient
+
+        client = SpeechClient(base_url="https://mock.local", timeout=5.0)
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status = MagicMock(side_effect=Exception("boom"))
+        client._client.get = AsyncMock(return_value=mock_response)
+
+        result = await client.list_models()
+        assert "bulbul:v2" in result["tts"]["models"]
+        assert "saaras:v3" in result["stt"]["models"]
 
     @pytest.mark.asyncio
     async def test_text_turn_endpoint(self, client):

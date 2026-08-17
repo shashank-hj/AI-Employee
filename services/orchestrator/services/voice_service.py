@@ -91,6 +91,7 @@ class VoiceService:
         stt = await self._speech.transcribe(
             audio_bytes,
             language_code=session_language or request.language_code,
+            model=request.stt_model,
         )
         transcript = stt.get("transcript", "").strip()
         detected_language = stt.get("language_code", request.language_code or "unknown")
@@ -110,6 +111,8 @@ class VoiceService:
             reply_audio = await self._speech.synthesize(
                 reply_text,
                 language_code=session_language or request.language_code,
+                model=request.tts_model,
+                speaker=request.speaker,
             )
             return VoiceTurnResponse(
                 request_id=request_id,
@@ -138,7 +141,12 @@ class VoiceService:
         reply_text = agent_response.final_response or _DEFAULT_REPLY
 
         # ── V2 TTS: reply natively in the detected language ──
-        reply_audio = await self._speech.synthesize(reply_text, language_code=detected_language)
+        reply_audio = await self._speech.synthesize(
+            reply_text,
+            language_code=detected_language,
+            model=request.tts_model,
+            speaker=request.speaker,
+        )
         if not reply_audio:
             logger.warning(
                 "voice_turn_tts_empty",
@@ -185,7 +193,12 @@ class VoiceService:
         ))
         reply_text = agent_response.final_response or _DEFAULT_REPLY
 
-        reply_audio = await self._speech.synthesize(reply_text, language_code=detected_language)
+        reply_audio = await self._speech.synthesize(
+            reply_text,
+            language_code=detected_language,
+            model=request.tts_model,
+            speaker=request.speaker,
+        )
         return VoiceTextTurnResponse(
             request_id=request_id,
             reply_text=reply_text,

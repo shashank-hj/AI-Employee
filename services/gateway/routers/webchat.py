@@ -1,26 +1,25 @@
-"""Web chat channel (CH5): serves the static chat page from the gateway."""
+"""Web chat channel (CH5): points the user to the integrated dashboard chat.
 
-from pathlib import Path
+The chat experience now lives inside the orchestrator dashboard (the Chat page),
+so the gateway simply redirects root / chat URLs to the dashboard. This keeps a
+single, unified UI instead of a separate chat page.
+"""
 
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
+
+from gateway.config import settings
 
 router = APIRouter(tags=["Web Chat"])
 
-_CHAT_PAGE = Path(__file__).resolve().parent.parent / "static" / "chat.html"
-
-
-def _read_chat_page() -> str:
-    if _CHAT_PAGE.exists():
-        return _CHAT_PAGE.read_text(encoding="utf-8")
-    return "<!DOCTYPE html><html><body><h1>Chat unavailable</h1></body></html>"
+_DASHBOARD_URL = settings.DASHBOARD_PUBLIC_URL.rstrip("/")
 
 
 @router.get("/", include_in_schema=False)
 async def root() -> RedirectResponse:
-    return RedirectResponse(url="/chat")
+    return RedirectResponse(url=_DASHBOARD_URL)
 
 
-@router.get("/chat", response_class=HTMLResponse, summary="Serve the web chat widget")
-async def web_chat() -> HTMLResponse:
-    return HTMLResponse(content=_read_chat_page(), media_type="text/html")
+@router.get("/chat", include_in_schema=False, summary="Redirect to the integrated dashboard chat")
+async def web_chat() -> RedirectResponse:
+    return RedirectResponse(url=_DASHBOARD_URL)

@@ -100,13 +100,15 @@ class PricingService:
         },
     ]
 
-    async def search_pricing(self, query: str) -> list[dict]:
+    async def search_pricing(self, query: str, top_k: int = 5) -> list[dict]:
         q = query.lower()
         results = []
         for tier in self._PRICING_TIERS:
             if q in tier["tier"].lower() or any(q in f.lower() for f in tier["features"]):
                 results.append(tier)
-        return results if results else self._PRICING_TIERS[:3]
+        if not results:
+            results = self._PRICING_TIERS[:3]
+        return results[:top_k]
 
     async def get_tier(self, tier_name: str) -> dict | None:
         for t in self._PRICING_TIERS:

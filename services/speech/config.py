@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     SARVAM_BASE_URL: str = "https://api.sarvam.ai"
     SARVAM_TIMEOUT: float = 60.0
     SARVAM_STT_MODEL: str = "saaras:v3"
+    SARVAM_TTS_MODEL: str = "bulbul:v2"
     SARVAM_TTS_SPEAKER: str = "anushka"
     SARVAM_TTS_LANGUAGE: str = "en-IN"
 

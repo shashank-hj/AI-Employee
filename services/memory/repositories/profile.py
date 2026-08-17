@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from memory.models.profile import UserProfileModel
@@ -14,6 +14,18 @@ class ProfileRepository:
         stmt = select(UserProfileModel).where(UserProfileModel.user_id == user_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def list_all(self, page: int = 1, page_size: int = 20) -> tuple[list[UserProfileModel], int]:
+        count_stmt = select(func.count(UserProfileModel.id))
+        total = (await self._session.execute(count_stmt)).scalar() or 0
+        stmt = (
+            select(UserProfileModel)
+            .order_by(UserProfileModel.updated_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all()), total
 
     async def upsert(self, profile: UserProfileModel) -> UserProfileModel:
         existing = await self.get_by_user_id(profile.user_id)

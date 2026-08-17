@@ -12,6 +12,9 @@ class ToolRegistry:
             raise ValueError(f"Tool '{tool.name}' is already registered")
         self._tools[tool.name] = tool
 
+    def register_or_replace(self, tool: BaseTool) -> None:
+        self._tools[tool.name] = tool
+
     def get(self, name: str) -> Optional[BaseTool]:
         return self._tools.get(name)
 

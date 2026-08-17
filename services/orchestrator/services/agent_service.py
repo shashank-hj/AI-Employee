@@ -54,6 +54,7 @@ class AgentService:
                 self._llm_provider,
                 checkpointer=engine.saver,
                 approval_service=self._approval_service,
+                memory_client=self._memory_client,
             )
         return self._graph
 
@@ -150,11 +151,17 @@ class AgentService:
         # ── Store session messages for context retrieval ──
         if self._memory_client is not None and request.session_id:
             try:
+                await self._memory_client.upsert_session(
+                    request.session_id,
+                    user_id=request.user_id,
+                )
                 await self._memory_client.add_message(
                     request.session_id, "user", request.user_input,
+                    user_id=request.user_id,
                 )
                 await self._memory_client.add_message(
                     request.session_id, "assistant", response.final_response,
+                    user_id=request.user_id,
                 )
                 logger.info("session_message_stored", session_id=request.session_id)
             except Exception as exc:

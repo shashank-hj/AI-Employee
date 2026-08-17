@@ -3,6 +3,6 @@ WORKDIR /app
 RUN pip install uv
 COPY shared/ /shared/
 COPY services/tool-registry/ /app/
-RUN uv pip install --system /shared/*/ .
+RUN uv pip install --system /shared/auth/ /shared/events/ /shared/guardrails/ /shared/llm/ /shared/models/ /shared/queue/ /shared/schemas/ /shared/usage/ /shared/utils/ .
 EXPOSE 8002
 CMD ["python", "-m", "tool_registry.main"]

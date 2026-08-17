@@ -34,6 +34,12 @@ DEFAULT_MODEL_PRICING: dict[str, dict[str, float]] = {
     "claude-3-5-haiku-20241022": {"in": 0.80, "out": 4.0},
     "gemini-1.5-pro": {"in": 1.25, "out": 5.0},
     "gemini-1.5-flash": {"in": 0.075, "out": 0.30},
+    # opencode (opencode serve / Zen gateway) — USD rates converted to INR at 84/$.
+    "opencode": {"in": 0.0, "out": 0.0},
+    "deepseek-v4-flash": {"in": 11.76, "out": 23.52},
+    "deepseek-v4-pro": {"in": 146.16, "out": 292.32},
+    "gpt-5.6-luna": {"in": 16.8, "out": 100.8},
+    "big-pickle": {"in": 0.0, "out": 0.0},
 }
 
 # Per-unit rate per operation (speech + embeddings). Unit is billable quantity.

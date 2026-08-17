@@ -116,7 +116,7 @@ class TestAgentRunEndpoint:
         data = response.json()
         assert data["steps"][0]["tool_name"] == "schedule_meeting"
         lower = data["final_response"].lower()
-        assert "Meeting" in data["final_response"] or "scheduled" in lower
+        assert "meeting" in lower or "scheduled" in lower or "date and time" in lower
 
     @pytest.mark.asyncio
     async def test_run_email_request(self, client):

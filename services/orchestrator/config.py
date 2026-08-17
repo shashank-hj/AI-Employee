@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     LLM_MAX_TOKENS: int = 2048
     LLM_CLASSIFY_MAX_TOKENS: int = 512
 
+    # ── opencode (opencode serve HTTP backend) ──
+    OPENCODE_BASE_URL: str = "http://localhost:4096"
+    OPENCODE_MODEL: str = ""
+    OPENCODE_AGENT: str = "general"
+    OPENCODE_PASSWORD: str = ""
+    OPENCODE_USERNAME: str = "opencode"
+    OPENCODE_TIMEOUT: float = 120.0
+    OPENCODE_MAX_TOKENS: int = 2048
+
     RAG_QUERY_PATH: str = "/api/query"
     RAG_HEALTH_PATH: str = "/health"
     RAG_TIMEOUT: float = 5.0
@@ -51,7 +60,35 @@ class Settings(BaseSettings):
     USAGE_ENABLED: bool = True
     USAGE_PRICING: str = "{}"
 
-    model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
+    # ── Email (SMTP + IMAP) ──
+    EMAIL_ENABLED: bool = False
+    EMAIL_ADDRESS: str = ""
+    EMAIL_PASSWORD: str = ""
+    EMAIL_SMTP_HOST: str = "smtp.gmail.com"
+    EMAIL_SMTP_PORT: int = 587
+    EMAIL_IMAP_HOST: str = "imap.gmail.com"
+    EMAIL_IMAP_PORT: int = 993
+    EMAIL_DISPLAY_NAME: str = "AI Employee"
+
+    # ── Calendar (Google Calendar API + ICS fallback) ──
+    # provider: auto | google | ics. auto picks Google when valid OAuth creds
+    # are present, otherwise falls back to .ics invites via the Gmail SMTP stack.
+    CALENDAR_ENABLED: bool = False
+    CALENDAR_PROVIDER: str = "auto"
+    CALENDAR_TIMEZONE: str = "Asia/Kolkata"
+    CALENDAR_ICS_INVITES_ENABLED: bool = True
+    CALENDAR_DUPLICATE_WINDOW_MINUTES: int = 15
+    GOOGLE_CALENDAR_ID: str = "primary"
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REFRESH_TOKEN: str = ""
+    GOOGLE_CALENDAR_SCOPES: str = "https://www.googleapis.com/auth/calendar"
+
+    model_config = {
+        "env_file": (".env", ".env-opencode"),
+        "case_sensitive": True,
+        "extra": "ignore",
+    }
 
 
 @lru_cache()

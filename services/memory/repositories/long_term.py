@@ -1,6 +1,5 @@
-from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from memory.models.long_term import LongTermMemoryModel
@@ -16,7 +15,7 @@ class LongTermMemoryRepository:
         await self._session.refresh(memory)
         return memory
 
-    async def get_by_id(self, memory_id: str) -> Optional[LongTermMemoryModel]:
+    async def get_by_id(self, memory_id: str) -> LongTermMemoryModel | None:
         stmt = select(LongTermMemoryModel).where(LongTermMemoryModel.id == memory_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
@@ -24,7 +23,7 @@ class LongTermMemoryRepository:
     async def list_by_user(
         self,
         user_id: str,
-        memory_type: Optional[str] = None,
+        memory_type: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[LongTermMemoryModel], int]:
@@ -37,21 +36,29 @@ class LongTermMemoryRepository:
         total_result = await self._session.execute(count_stmt)
         total = total_result.scalar() or 0
 
-        list_stmt = base.order_by(LongTermMemoryModel.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        list_stmt = (
+            base.order_by(LongTermMemoryModel.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         result = await self._session.execute(list_stmt)
         return list(result.scalars().all()), total
 
     async def search_by_embedding(
         self,
         embedding: list[float],
-        user_id: Optional[str] = None,
-        memory_type: Optional[str] = None,
+        user_id: str | None = None,
+        memory_type: str | None = None,
         top_k: int = 10,
         min_score: float = 0.0,
+        importance_min: float | None = None,
+        importance_max: float | None = None,
+        sort: str = "score",
     ) -> list[tuple[LongTermMemoryModel, float]]:
         from sqlalchemy import text as sa_text
 
-        params: dict = {"embedding": embedding, "top_k": top_k, "min_score": min_score}
+        vector_literal = "[" + ",".join(str(float(x)) for x in embedding) + "]"
+        params: dict = {"embedding": vector_literal, "top_k": top_k, "min_score": min_score}
         conditions = ["1=1"]
         if user_id:
             conditions.append("user_id = :user_id")
@@ -59,6 +66,18 @@ class LongTermMemoryRepository:
         if memory_type:
             conditions.append("memory_type = :memory_type")
             params["memory_type"] = memory_type
+        if importance_min is not None:
+            conditions.append("importance >= :importance_min")
+            params["importance_min"] = importance_min
+        if importance_max is not None:
+            conditions.append("importance <= :importance_max")
+            params["importance_max"] = importance_max
+
+        order_by = {
+            "score": "embedding <=> :embedding",
+            "importance": "importance DESC, embedding <=> :embedding",
+            "created_at": "created_at DESC, embedding <=> :embedding",
+        }.get(sort, "embedding <=> :embedding")
 
         query = sa_text(f"""
             SELECT id, user_id, content, memory_type, importance, metadata, source,
@@ -67,7 +86,7 @@ class LongTermMemoryRepository:
             FROM long_term_memories
             WHERE {" AND ".join(conditions)}
             AND embedding IS NOT NULL
-            ORDER BY embedding <=> :embedding
+            ORDER BY {order_by}
             LIMIT :top_k
         """)
 

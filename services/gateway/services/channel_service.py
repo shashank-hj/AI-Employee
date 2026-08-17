@@ -18,12 +18,12 @@ class ChannelService:
         self,
         orchestrator_url: str | None = None,
         agent_run_path: str = "/api/agent/run",
-        timeout: float = 30.0,
+        timeout: float | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._orchestrator_url = (orchestrator_url or settings.ORCHESTRATOR_URL).rstrip("/")
         self._agent_run_path = agent_run_path
-        self._timeout = timeout
+        self._timeout = timeout if timeout is not None else settings.CHANNEL_TIMEOUT_SECONDS
         self._transport = transport
 
     def _to_agent_payload(self, message: ChannelMessage) -> dict[str, Any]:

@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -19,10 +20,20 @@ class Settings(BaseSettings):
     OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
     EMBEDDING_TIMEOUT: float = 30.0
 
+    # ── Session lifecycle ──
+    MEMORY_SESSION_TTL_SECONDS: int = 86400
+
+    # ── Session summarization ──
+    MEMORY_SUMMARY_MODE: str = "mock"
+    MEMORY_SUMMARY_MODEL: str = "qwen3:8b"
+    MEMORY_SUMMARY_TIMEOUT: float = 30.0
+    SARVAM_API_KEY: str = ""
+    SARVAM_MODEL: str = "sarvam-105b"
+
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()
 

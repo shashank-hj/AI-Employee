@@ -23,6 +23,9 @@ dependencies = [
     "python-dotenv",
     "tenacity",
     "dependency-injector",
+    "google-api-python-client>=2.100.0",
+    "google-auth>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +41,9 @@ dev = [
 members = [
     "services/*",
     "shared/*",
+]
+exclude = [
+    "shared/tests",
 ]
 
 [tool.uv.sources]

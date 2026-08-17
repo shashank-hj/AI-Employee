@@ -162,6 +162,8 @@ class TestChannelRouter:
         class FakeService:
             async def process(self, message):
                 calls["text"] = message.text
+                calls["metadata"] = message.metadata
+                calls["sender_email"] = message.sender.email
                 return {"message_id": "m", "channel": "web", "final_response": "ok"}
 
         app.dependency_overrides[get_channel_service] = lambda: FakeService()
@@ -175,6 +177,8 @@ class TestChannelRouter:
         assert response.status_code == 200
         assert "user@example.com" not in calls["text"]
         assert "[EMAIL]" in calls["text"]
+        assert calls["metadata"] == {"attendees": ["user@example.com"]}
+        assert calls["sender_email"] == "user@example.com"
 
     @pytest.mark.asyncio
     async def test_rate_limited_returns_429(self, app, client):

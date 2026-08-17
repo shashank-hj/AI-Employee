@@ -127,10 +127,10 @@ class OpenAICompatibleProvider(LLMProvider):
                 user_message=user_message,
                 operation="generate",
             )
-        except Exception as exc:
+        except httpx.HTTPStatusError as exc:
             duration_ms = (time.perf_counter() - start) * 1000
             logger.error("llm_generate_failed", error=str(exc), model=self._model)
-            if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 404:
+            if exc.response.status_code == 404:
                 return LLMResponse(
                     content=(
                         f"I was unable to generate a response because the model '{self._model}' "
@@ -140,11 +140,11 @@ class OpenAICompatibleProvider(LLMProvider):
                     model=self._model,
                     duration_ms=round(duration_ms, 2),
                 )
-            return LLMResponse(
-                content="I'm sorry, I encountered an error processing your request.",
-                model=self._model,
-                duration_ms=round(duration_ms, 2),
-            )
+            raise
+        except Exception:
+            duration_ms = (time.perf_counter() - start) * 1000
+            logger.error("llm_generate_failed", error="", model=self._model, exc_info=True)
+            raise
 
     async def health_check(self) -> bool:
         try:

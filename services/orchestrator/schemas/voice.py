@@ -10,6 +10,8 @@ class VoiceTurnRequest(BaseModel):
 
     ``audio_base64`` is the raw audio bytes (webm/wav) from the caller.
     ``language_code`` is optional; when absent the speech service auto-detects.
+    ``stt_model`` / ``tts_model`` / ``speaker`` let the caller pin which Sarvam
+    voice model and voice to use; when omitted the speech service defaults apply.
     """
 
     audio_base64: str = Field(..., description="Base64-encoded inbound audio (webm/wav)")
@@ -18,6 +20,9 @@ class VoiceTurnRequest(BaseModel):
     language_code: str | None = Field(
         default=None, description="Hint for STT/TTS; auto-detected when omitted"
     )
+    stt_model: str | None = Field(default=None, description="Sarvam STT model id (e.g. saaras:v3)")
+    tts_model: str | None = Field(default=None, description="Sarvam TTS model id (e.g. bulbul:v2)")
+    speaker: str | None = Field(default=None, description="Sarvam TTS speaker name")
     channel_message_id: str | None = Field(default=None)
     tenant_id: str | None = Field(default=None)
     contact: ChannelContact | None = Field(default=None)
@@ -45,6 +50,8 @@ class VoiceTextTurnRequest(BaseModel):
     user_id: str | None = Field(default=None)
     session_id: str | None = Field(default=None)
     language_code: str | None = Field(default=None)
+    tts_model: str | None = Field(default=None, description="Sarvam TTS model id (e.g. bulbul:v2)")
+    speaker: str | None = Field(default=None, description="Sarvam TTS speaker name")
     channel_message_id: str | None = Field(default=None)
     tenant_id: str | None = Field(default=None)
     contact: ChannelContact | None = Field(default=None)

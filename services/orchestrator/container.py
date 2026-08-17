@@ -12,22 +12,25 @@ from orchestrator.planner.mock_planner import MockPlanner
 from orchestrator.services.agent_service import AgentService
 from orchestrator.services.approval_service import ApprovalService
 from orchestrator.services.business_services import (
-    CalendarService,
     EmailService,
     EscalationService,
     OrderService,
     PricingService,
     WeatherService,
 )
+from orchestrator.services.calendar.repository import PendingBookingRepository
+from orchestrator.services.calendar_service import CalendarService
 from orchestrator.services.fact_extractor import FactExtractor
 from orchestrator.services.memory_client import MemoryClient
 from orchestrator.services.speech_client import SpeechClient
 from orchestrator.services.voice_service import VoiceService
+from orchestrator.services.gmail_client import GmailClient
+from orchestrator.tools.calendar_tools import register_calendar_tools
 from orchestrator.tools.mock_tools import register_mock_tools
 from orchestrator.tools.rag_client import HttpRAGClient, MockRAGClient, RAGClient
 from orchestrator.tools.registry import ToolRegistry
 from orchestrator.workers.memory_writer import MemoryWriterWorker
-from shared.llm import LLMProvider, OllamaProvider, SarvamProvider
+from shared.llm import LLMProvider, OllamaProvider, OpencodeProvider, SarvamProvider
 from shared.usage import UsageRecorder
 
 logger = structlog.get_logger(__name__)
@@ -51,12 +54,13 @@ def get_tool_registry() -> ToolRegistry:
         registry,
         rag_client=_build_rag_client(),
         order_service=get_order_service(),
-        calendar_service=get_calendar_service(),
         pricing_service=get_pricing_service(),
         email_service=get_email_service(),
         escalation_service=get_escalation_service(),
         weather_service=get_weather_service(),
+        gmail_client=get_gmail_client(),
     )
+    register_calendar_tools(registry, get_calendar_service())
     return registry
 
 
@@ -87,22 +91,33 @@ def _resolve_provider() -> LLMProvider | None:
             max_tokens=settings.LLM_MAX_TOKENS,
         )
 
-    if settings.SARVAM_API_KEY:
-        logger.info("llm_provider_selected", provider="SarvamProvider", model=settings.SARVAM_MODEL)
-        return SarvamProvider(
-            api_key=settings.SARVAM_API_KEY,
-            base_url=settings.SARVAM_BASE_URL,
-            model=settings.SARVAM_MODEL,
-            timeout=settings.SARVAM_TIMEOUT,
-            temperature=settings.LLM_TEMPERATURE,
-            max_tokens=settings.LLM_MAX_TOKENS,
+    if provider == "opencode":
+        logger.info(
+            "llm_provider_selected",
+            provider="OpencodeProvider",
+            model=settings.OPENCODE_MODEL or "opencode-default",
+            agent=settings.OPENCODE_AGENT,
         )
+        return _opencode_provider()
 
     logger.warning(
         "llm_provider_not_configured",
-        message="Set LLM_PROVIDER=ollama or LLM_PROVIDER=sarvam; using MockPlanner",
+        message="Set LLM_PROVIDER=ollama, sarvam, or opencode; using MockPlanner",
     )
     return None
+
+
+def _opencode_provider(max_tokens: int | None = None) -> OpencodeProvider:
+    return OpencodeProvider(
+        base_url=settings.OPENCODE_BASE_URL,
+        model=settings.OPENCODE_MODEL,
+        agent=settings.OPENCODE_AGENT,
+        password=settings.OPENCODE_PASSWORD or None,
+        username=settings.OPENCODE_USERNAME or "opencode",
+        timeout=settings.OPENCODE_TIMEOUT,
+        temperature=settings.LLM_TEMPERATURE,
+        max_tokens=max_tokens or settings.OPENCODE_MAX_TOKENS,
+    )
 
 
 def _with_usage_hook(provider: LLMProvider | None) -> LLMProvider | None:
@@ -126,6 +141,8 @@ def _build_classify_llm() -> LLMProvider | None:
             temperature=settings.LLM_TEMPERATURE,
             max_tokens=settings.LLM_CLASSIFY_MAX_TOKENS,
         ))
+    if isinstance(provider, OpencodeProvider):
+        return _with_usage_hook(_opencode_provider(max_tokens=settings.LLM_CLASSIFY_MAX_TOKENS))
     return _with_usage_hook(SarvamProvider(
         api_key=settings.SARVAM_API_KEY,
         base_url=settings.SARVAM_BASE_URL,
@@ -146,7 +163,11 @@ def get_planner() -> BasePlanner:
             else settings.OLLAMA_MODEL
         )
         logger.info("planner_initialized", provider=type(llm).__name__, model=model)
-        return LLMPlanner(llm_provider=llm, fallback_intent=settings.LLM_FALLBACK_INTENT)
+        return LLMPlanner(
+            llm_provider=llm,
+            fallback_intent=settings.LLM_FALLBACK_INTENT,
+            pending_repo=get_pending_booking_repository(),
+        )
     logger.info("planner_initialized", provider="MockPlanner")
     return MockPlanner()
 
@@ -161,9 +182,13 @@ def get_order_service():
     return OrderService()
 
 
-@lru_cache
-def get_calendar_service():
+def get_calendar_service() -> CalendarService:
     return CalendarService()
+
+
+@lru_cache
+def get_pending_booking_repository() -> PendingBookingRepository:
+    return PendingBookingRepository()
 
 
 @lru_cache
@@ -184,6 +209,11 @@ def get_weather_service():
 @lru_cache
 def get_escalation_service():
     return EscalationService()
+
+
+@lru_cache
+def get_gmail_client() -> GmailClient:
+    return GmailClient()
 
 
 @lru_cache
