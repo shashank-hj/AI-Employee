@@ -22,6 +22,7 @@ class ChannelType(StrEnum):
     API = "api"
     SMS = "sms"
     VOICE = "voice"
+    SAMVAAD = "samvaad"
 
 
 class ChannelContact(BaseModel):

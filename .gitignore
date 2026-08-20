@@ -15,6 +15,7 @@ eggs/
 
 # Virtual environments
 .venv/
+.venv-sdk313/
 venv/
 env/
 

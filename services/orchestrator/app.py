@@ -12,7 +12,18 @@ from orchestrator.config import settings
 from orchestrator.container import _build_rag_client, _build_generate_llm, get_memory_writer_worker
 from orchestrator.database.session import engine
 from orchestrator.graph.checkpointer import get_checkpoint_engine
-from orchestrator.routers import health, agent, human_tasks, usage, voice, tools, gmail, calendar
+from orchestrator.routers import (
+    agent,
+    calendar,
+    gmail,
+    health,
+    human_tasks,
+    samvaad,
+    samvaad_tools,
+    tools,
+    usage,
+    voice,
+)
 from shared.models.base import Base
 from shared.utils.exceptions import AppException
 from shared.utils.logging import setup_logging
@@ -31,6 +42,7 @@ async def lifespan(app: FastAPI):
 
     import orchestrator.models.human_task  # noqa: F811 — register models on Base
     import orchestrator.models.calendar_meeting  # noqa: F811 — register models on Base
+    import orchestrator.models.task  # noqa: F811 — register models on Base
     import shared.usage.model  # noqa: F401 — register usage_events on Base
 
     try:
@@ -157,6 +169,8 @@ def create_app() -> FastAPI:
     app.include_router(human_tasks.router, tags=["Human Tasks"])
     app.include_router(usage.router, tags=["Usage"])
     app.include_router(voice.router, tags=["Voice"])
+    app.include_router(samvaad.router, tags=["Samvaad"])
+    app.include_router(samvaad_tools.router, tags=["Samvaad Tools"])
     app.include_router(tools.router, tags=["Tools"])
     if settings.EMAIL_ENABLED:
         app.include_router(gmail.router, tags=["Email"])

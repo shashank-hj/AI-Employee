@@ -15,6 +15,38 @@ class Settings(BaseSettings):
     MEMORY_URL: str = "http://memory:8003"
     RAG_URL: str = "http://localhost:8004"
     SPEECH_URL: str = "http://speech:8006"
+
+    # ── Samvaad (Sarvam Voice Agents platform) ──
+    # Optional opt-in channel: bridges the hosted Samvaad agent into the
+    # platform. Requires the sarvam-conv-ai-sdk dependency and a Samvaad
+    # API key + committed agent version. Disabled => graceful 503s.
+    SAMVAAD_ENABLED: bool = False
+    SAMVAAD_API_KEY: str = ""
+    SAMVAAD_AGENT_ID: str = ""
+    SAMVAAD_ORG_ID: str = ""
+    SAMVAAD_WORKSPACE_ID: str = ""
+    SAMVAAD_APP_RUNTIME_URL: str = "https://apps.sarvam.ai/api/app-runtime/"
+    SAMVAAD_AGENT_VERSION: int = 0
+    SAMVAAD_SAMPLE_RATE: int = 16000
+    SAMVAAD_DEFAULT_LANGUAGE: str = "English"
+    SAMVAAD_CONNECT_TIMEOUT: float = 15.0
+    # Optional shared secret for the /api/samvaad/tools/* webhooks. When set, the
+    # Sarvam agent's webhook calls must send it in the X-Samvaad-Secret header
+    # (or the ?token= query param fallback); when empty, a non-empty X-API-Key is
+    # required instead.
+    SAMVAAD_TOOL_SECRET: str = ""
+    # Explicit opt-in for the real-action webhook tools. JSON array of tool names,
+    # e.g. '["email/send","calendar/schedule","human/transfer"]'. When empty, only
+    # the safe read-only tools are allowed and every action tool returns 403.
+    # This is the confirmation gate that must be deliberately set before the
+    # hosted Samvaad agent can send emails / schedule meetings / transfer to a
+    # human in production.
+    SAMVAAD_TOOLS_ALLOWLIST: str = ""
+    # Spend guardrails (cost estimator / usage dashboard).
+    SAMVAAD_SPEND_ALERT_RS: float = 25.0
+    SAMVAAD_MAX_TURNS: int = 40
+    SAMVAAD_MAX_DURATION_S: int = 600
+
     OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://otel-collector:4317"
     ENVIRONMENT: str = "development"
     SERVICE_NAME: str = "orchestrator"

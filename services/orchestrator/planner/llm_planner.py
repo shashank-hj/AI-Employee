@@ -291,6 +291,11 @@ HUMAN_ESCALATION_RESPONSE = (
     "They will review your conversation history and respond shortly."
 )
 
+GREETING_RESPONSE = (
+    "Hello! I'm your AI Employee assistant. How can I help you today? "
+    "I can answer questions, look up documents, schedule meetings, send emails, and more."
+)
+
 _ESCALATION_PATTERN = re.compile(
     r"\b("
     r"talk\s+to\s+(a\s+|an\s+|the\s+)?(human|real\s+person|agent|someone|representative|support\s+team)"
@@ -461,7 +466,7 @@ def _pre_classify(text: str) -> IntentClassification | None:
     clean = lower.strip(".,!?;:")
     if clean in _GREETING_SET:
         return IntentClassification(
-            intent="general",
+            intent="greeting",
             confidence=0.95,
             reason="regex: simple greeting",
         )
@@ -588,6 +593,11 @@ class LLMPlanner(BasePlanner):
             )
             return []
 
+        if intent.intent == "greeting":
+            state["final_response"] = GREETING_RESPONSE
+            logger.info("plan_greeting_short_circuit", intent=intent.intent)
+            return []
+
         tool_names = self._resolve_tools(intent)
         logger.info(
             "tools_resolved",
@@ -601,7 +611,11 @@ class LLMPlanner(BasePlanner):
         steps: list[PlanStep] = []
         for tool_name in tool_names:
             if tool_name in ("email_send", "send_email"):
-                parameters = await self._draft_email_params(user_input, context=context_str)
+                parameters = await self._draft_email_params(
+                    user_input,
+                    context=context_str,
+                    structured_emails=self._structured_emails(state),
+                )
             elif tool_name in _CALENDAR_TOOLS:
                 parameters = self._calendar_params(tool_name, user_input, state)
             else:
@@ -715,15 +729,69 @@ class LLMPlanner(BasePlanner):
 
         return None
 
-    async def _draft_email_params(self, user_input: str, context: str | None = None) -> dict[str, str]:
+    def _structured_emails(self, state: AgentState) -> list[str]:
+        """Real email addresses carried as structured fields.
+
+        The gateway redacts addresses out of the free text and re-surfaces them
+        in ``request_metadata["attendees"]`` (and the sender's ``contact.email``)
+        so downstream tools can still use them.
+        """
+        emails: list[str] = []
+        metadata = state.get("request_metadata") or {}
+        attendees = metadata.get("attendees") or []
+        if isinstance(attendees, list):
+            emails.extend(a for a in attendees if isinstance(a, str))
+        contact = state.get("contact") or {}
+        contact_email = contact.get("email")
+        if isinstance(contact_email, str) and contact_email:
+            emails.append(contact_email)
+        return list(dict.fromkeys(e.strip() for e in emails if e.strip()))
+
+    def _resolve_recipient(
+        self, to: str, user_input: str, structured_emails: list[str]
+    ) -> str:
+        """Pick the recipient address for the email tool.
+
+        The drafting LLM or heuristics may return an empty string, the redaction
+        placeholder (``[EMAIL]``), or the raw user phrase (e.g.
+        ``"send to a@b.com"``). Prefer a real address found in the drafted
+        ``to``, then the user's current message, and finally the structured
+        emails re-surfaced from gateway redaction.
+        """
+        match = _EMAIL_ADDR_PATTERN.search(to or "")
+        if not match:
+            match = _EMAIL_ADDR_PATTERN.search(user_input)
+        if match:
+            return match.group(1)
+        for email in structured_emails:
+            if email:
+                return email
+        return to or ""
+
+    async def _draft_email_params(
+        self,
+        user_input: str,
+        context: str | None = None,
+        structured_emails: list[str] | None = None,
+    ) -> dict[str, str]:
         """Draft email subject/body with the LLM for any scenario, falling back to
         heuristic extraction if the LLM is unavailable or returns nothing usable.
 
         ``context`` carries prior conversation (e.g. an assistant answer the user
         asks to send "above"/previously). When present and the user references it,
         the referenced content is used as the email body source.
+
+        ``structured_emails`` carries addresses the gateway re-surfaced as
+        structured fields after redacting them out of the free text. If the LLM
+        or heuristics produce an empty, placeholder (``[EMAIL]``), or prose
+        recipient, the structured address is substituted so the tool call never
+        carries the redaction placeholder.
         """
+        structured_emails = structured_emails or []
         fallback = _extract_email_params(user_input)
+        fallback["to"] = self._resolve_recipient(
+            fallback.get("to", ""), user_input, structured_emails
+        )
 
         # If the user is asking to send previously-shown content (\"send the above
         # info\", \"send this to ...\"), construct the email deterministically from
@@ -754,7 +822,9 @@ class LLMPlanner(BasePlanner):
             return _enrich_fallback_with_context(fallback, user_input, context)
 
         data = _extract_json_object(response.content)
-        to = (data.get("to") or "").strip()
+        to = self._resolve_recipient(
+            (data.get("to") or "").strip(), user_input, structured_emails
+        )
         subject = (data.get("subject") or "").strip()
         body = (data.get("body") or "").strip()
         valid = (not data) or (to and subject and body)

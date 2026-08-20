@@ -27,6 +27,7 @@ dependencies = [
     "google-auth-oauthlib>=1.0.0",
     "dateparser>=1.1.0",
     "icalendar>=5.0.0",
+    "sarvam-conv-ai-sdk>=1.0.21",
 ]
 
 [project.optional-dependencies]

@@ -6,6 +6,10 @@ from speech.config import settings
 logger = structlog.get_logger(__name__)
 
 
+class SarvamQuotaError(Exception):
+    """Raised when Sarvam rejects a request due to exhausted credits."""
+
+
 class SarvamSTTProvider:
     def __init__(
         self,
@@ -44,6 +48,11 @@ class SarvamSTTProvider:
                     status=response.status_code,
                     body=response.text[:500],
                 )
+                if response.status_code == 402:
+                    raise SarvamQuotaError(
+                        "Sarvam credits exhausted (402). Add credits at "
+                        "dashboard.sarvam.ai/billing."
+                    )
                 response.raise_for_status()
             result = response.json()
 

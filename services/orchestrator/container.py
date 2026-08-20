@@ -21,10 +21,12 @@ from orchestrator.services.business_services import (
 from orchestrator.services.calendar.repository import PendingBookingRepository
 from orchestrator.services.calendar_service import CalendarService
 from orchestrator.services.fact_extractor import FactExtractor
-from orchestrator.services.memory_client import MemoryClient
-from orchestrator.services.speech_client import SpeechClient
-from orchestrator.services.voice_service import VoiceService
 from orchestrator.services.gmail_client import GmailClient
+from orchestrator.services.memory_client import MemoryClient
+from orchestrator.services.samvaad_client import SamvaadSessionManager
+from orchestrator.services.speech_client import SpeechClient
+from orchestrator.services.task_service import TaskService
+from orchestrator.services.voice_service import VoiceService
 from orchestrator.tools.calendar_tools import register_calendar_tools
 from orchestrator.tools.mock_tools import register_mock_tools
 from orchestrator.tools.rag_client import HttpRAGClient, MockRAGClient, RAGClient
@@ -212,6 +214,11 @@ def get_escalation_service():
 
 
 @lru_cache
+def get_task_service() -> TaskService:
+    return TaskService()
+
+
+@lru_cache
 def get_gmail_client() -> GmailClient:
     return GmailClient()
 
@@ -266,6 +273,24 @@ def get_memory_client() -> MemoryClient:
 @lru_cache
 def get_speech_client() -> SpeechClient:
     return SpeechClient(base_url=settings.SPEECH_URL, timeout=30.0)
+
+
+@lru_cache
+def get_samvaad_session_manager() -> SamvaadSessionManager:
+    return SamvaadSessionManager(
+        api_key=settings.SAMVAAD_API_KEY,
+        agent_id=settings.SAMVAAD_AGENT_ID,
+        org_id=settings.SAMVAAD_ORG_ID,
+        workspace_id=settings.SAMVAAD_WORKSPACE_ID,
+        base_url=settings.SAMVAAD_APP_RUNTIME_URL,
+        sample_rate=settings.SAMVAAD_SAMPLE_RATE,
+        default_language=settings.SAMVAAD_DEFAULT_LANGUAGE,
+        version=settings.SAMVAAD_AGENT_VERSION or None,
+        connect_timeout=settings.SAMVAAD_CONNECT_TIMEOUT,
+        enabled=settings.SAMVAAD_ENABLED,
+        max_turns=settings.SAMVAAD_MAX_TURNS,
+        max_duration_s=settings.SAMVAAD_MAX_DURATION_S,
+    )
 
 
 @lru_cache

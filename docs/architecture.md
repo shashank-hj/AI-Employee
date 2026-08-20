@@ -213,6 +213,140 @@ wrapper: it builds a `RedisTaskQueue` + `RedisTaskWorker`, registers
 `TASK_NAME = "memory_writer"` and delegates `start`/`stop`/`enqueue`. The worker
 degrades to a no-op (logged) when Redis is down.
 
+## Samvaad Channel (hosted Sarvam voice agent)
+
+Opt-in integration with the agent you build in the Sarvam dashboard
+(`indus.sarvam.ai/samvaad/build/my-agents`, e.g. `AI-Employee-33c6c05a-c14f`).
+It is a **channel**, not a replacement: the dashboard gets a "Local Agent |
+Samvaad Agent" toggle, and the platform services stay the tool/data backend.
+
+### Inbound — Samvaad bridge (orchestrator)
+
+`services/orchestrator/services/samvaad_client.py` wraps the official
+`sarvam-conv-ai-sdk` (`AsyncSamvaadAgent`) headlessly (no PyAudio — audio moves
+through callbacks + `send_audio`). Server messages are normalised onto a
+per-session outbox: `text`, `transcript`, `audio`, `event`.
+
+Exposed by `routers/samvaad.py`:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET  | `/api/samvaad/status` | enabled? agent id, active sessions, reason |
+| POST | `/api/samvaad/sessions` | open a session (chat/call) → session_id |
+| GET  | `/api/samvaad/sessions` | list open sessions |
+| GET  | `/api/samvaad/sessions/{id}` | session detail |
+| POST | `/api/samvaad/sessions/{id}/text` | send a chat message |
+| POST | `/api/samvaad/sessions/{id}/audio` | send base64 PCM16 audio (call) |
+| POST | `/api/samvaad/sessions/{id}/close` | close a session |
+| GET  | `/api/samvaad/sessions/{id}/messages` | poll normalised replies |
+| WS   | `/api/samvaad/ws` | full-duplex proxy (`init`/`text`/`audio`/`poll`) |
+
+When the SDK is missing or the config is incomplete, endpoints degrade to
+`503` with a reason instead of crashing.
+
+### Outbound — real-data webhook tools (`routers/samvaad_tools.py`)
+
+The Samvaad agent acts on real platform data via webhook Tools / On-Start /
+On-End hooks authored in the Sarvam dashboard. Base URL = this orchestrator's
+public URL (or the gateway proxy path `/api/orchestrator/samvaad/tools/...`).
+Auth: `X-API-Key` required, or `X-Samvaad-Secret` when `SAMVAAD_TOOL_SECRET` is
+set.
+
+| Agent hook / tool | Endpoint | Real backend |
+|-------------------|----------|--------------|
+| On-Start | `POST /api/samvaad/tools/on-start/context` | memory profile + session language + today's meetings → `agent_variables` |
+| On-End | `POST /api/samvaad/tools/on-end/record` | writes transcript + summary fact to the memory service |
+| calendar | `POST /api/samvaad/tools/calendar/availability` | `CalendarService.check_availability` (Google/ICS) |
+| calendar | `POST /api/samvaad/tools/calendar/schedule` | `CalendarService.create_meeting` |
+| calendar | `POST /api/samvaad/tools/calendar/update` | `CalendarService.update_meeting` / `cancel_meeting` (action) |
+| email | `POST /api/samvaad/tools/email/send` | `EmailClient` (SMTP/Gmail, action) |
+| email | `POST /api/samvaad/tools/email/search` | `EmailClient` (IMAP search, read-only) |
+| knowledge | `POST /api/samvaad/tools/search/documents` | RAG search |
+| orders | `POST /api/samvaad/tools/orders/lookup` | `OrderService` |
+| pricing | `POST /api/samvaad/tools/pricing/search` | `PricingService` |
+| tasks | `POST /api/samvaad/tools/tasks/manage` | `TaskService` (user_tasks table, action) |
+| handoff | `POST /api/samvaad/tools/human/transfer` | `EscalationService` |
+
+#### Wiring the Sarvam dashboard
+
+The webhooks are entered in the Sarvam build canvas (`Tools`, plus the On-Start /
+On-End hooks). Every call is a `POST` to `<PUBLIC_BASE>/api/samvaad/tools/<name>`
+where `PUBLIC_BASE` is a **publicly reachable** URL for the orchestrator. An ngrok
+tunnel to `localhost:8001` works for testing:
+
+```sh
+ngrok http 8001 --domain=comic-paragraph-peroxide.ngrok-free.dev
+# → https://comic-paragraph-peroxide.ngrok-free.dev
+# Persistent runner: scripts/run-ngrok.ps1 (auto-restarts, logs to %TEMP%\opencode\ngrok)
+```
+
+Windows Defender may flag ngrok as a false positive — add an exclusion for the
+ngrok folders (scripts/ngrok-unblock.ps1 does this elevated).
+
+Every request must carry the header `X-Samvaad-Secret: <SAMVAAD_TOOL_SECRET>`
+(from `.env`) — or, as a fallback when the webhook editor cannot send custom
+headers, a `?token=<SAMVAAD_TOOL_SECRET>` query parameter on the URL. Header
+auth takes precedence. When `SAMVAAD_TOOL_SECRET` is unset, a non-empty
+`X-API-Key` header is required instead.
+
+| Tool name | URL (method POST) | JSON body the agent sends |
+|-----------|-------------------|---------------------------|
+| on_start_context | `.../tools/on-start/context` | `{"user_identifier": "...", "session_id": "..."}` |
+| on_end_record | `.../tools/on-end/record` | `{"session_id":"...","user_id":"...","transcript":[{"role":"user","text":"..."}],"duration_ms":1000}` |
+| check_calendar_availability | `.../tools/calendar/availability` | `{"start_at":"2026-08-18T09:00:00+05:30","duration_minutes":30,"timezone":"Asia/Kolkata"}` |
+| schedule_meeting | `.../tools/calendar/schedule` | `{"session_id":"...","title":"...","start_at":"...","end_at":"...","attendees":["a@b.c"],"description":"..."}` |
+| update_calendar_meeting | `.../tools/calendar/update` | `{"action":"reschedule","meeting_id":"...","new_start_at":"...","new_end_at":"..."}` or `{"action":"cancel","meeting_id":"..."}` (also matches by `session_id` + `start_at`) |
+| send_email | `.../tools/email/send` | `{"to":"...","subject":"...","body":"..."}` |
+| search_emails | `.../tools/email/search` | `{"query":"FROM \"boss@example.com\"","max_results":10,"with_body":false}` |
+| search_documents | `.../tools/search/documents` | `{"query":"return policy","top_k":5}` |
+| lookup_order | `.../tools/orders/lookup` | `{"order_id":"ORD-1234"}` |
+| search_pricing | `.../tools/pricing/search` | `{"query":"enterprise plan","top_k":5}` |
+| manage_task | `.../tools/tasks/manage` | `{"action":"create","session_id":"...","user_id":"...","title":"...","due_at":"..."}`, `{"action":"list","session_id":"..."}`, `{"action":"complete","task_id":"..."}`, `{"action":"update","task_id":"...","status":"in_progress"}`, `{"action":"delete","task_id":"..."}` |
+| transfer_to_human | `.../tools/human/transfer` | `{"reason":"...","user_input":"...","priority":"NORMAL"}` |
+
+The webhooks are thin and delegate to the platform's production services, so the
+agent reads/writes real calendar, email, RAG, orders, pricing, memory and task
+data.
+
+##### Confirmation gate for action tools
+
+The read-only tools (`on-start/context`, `on-end/record`,
+`calendar/availability`, `email/search`, `search/documents`, `orders/lookup`,
+`pricing/search`) are always available. The real-action tools
+**`email/send`, `calendar/schedule`, `human/transfer`, `calendar/update`,
+`tasks/manage` are blocked by default** (403) and only run after they are
+explicitly listed in `SAMVAAD_TOOLS_ALLOWLIST` in `.env` — e.g.
+`SAMVAAD_TOOLS_ALLOWLIST='["email/send","calendar/schedule","human/transfer","calendar/update","tasks/manage"]'`.
+This is the explicit confirmation gate: production cannot use the action tools
+until an operator deliberately enables them. The read-only defaults are always
+available even when the allowlist is set; the allowlist only unlocks the action
+tools on top of them. `GET /api/samvaad/status` reports the current
+`tools: {allowed, blocked}` state.
+
+### Config
+
+`SAMVAAD_ENABLED`, `SAMVAAD_API_KEY`, `SAMVAAD_AGENT_ID`, `SAMVAAD_ORG_ID`,
+`SAMVAAD_WORKSPACE_ID`, `SAMVAAD_APP_RUNTIME_URL`, `SAMVAAD_AGENT_VERSION`,
+`SAMVAAD_SAMPLE_RATE`, `SAMVAAD_DEFAULT_LANGUAGE`, `SAMVAAD_CONNECT_TIMEOUT`,
+`SAMVAAD_TOOL_SECRET`, `SAMVAAD_TOOLS_ALLOWLIST`.
+
+Verify with `python scripts/samvaad_verify.py` (key auth + committed-version
+probe; auto-falls back chat → call since the hosted agent is voice-only). The
+agent must have a **committed version** — the SDK refuses to connect otherwise.
+
+### Frontend
+
+`services/orchestrator/static/dashboard.html` shows the channel toggle when
+`/api/samvaad/status` reports enabled. The hosted Samvaad agent is a **voice
+(CALL) agent**, so:
+
+- **Text chat always uses the local agent** — the toggle never reroutes typed
+  messages to Samvaad (chat interaction type returns 404 for voice agents).
+- **Mic** records via the browser, transcodes webm → 16 kHz PCM16 in the page,
+  sends it as `audio` over the WS proxy, and plays the returned audio chunks
+  back. With the "Samvaad Agent" toggle selected the mic talks to the hosted
+  voice agent; otherwise it uses the local STT pipeline.
+
 ## Configuration Guide
 
 ### Local Development

@@ -157,6 +157,7 @@ dependencies = [
     { name = "psycopg-binary" },
     { name = "pydantic-settings" },
     { name = "redis" },
+    { name = "sarvam-conv-ai-sdk" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
     { name = "uvicorn", extra = ["standard"] },
@@ -195,6 +196,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
     { name = "redis" },
+    { name = "sarvam-conv-ai-sdk", specifier = ">=1.0.21" },
     { name = "sqlalchemy", extras = ["asyncio"] },
     { name = "structlog" },
     { name = "uvicorn", extras = ["standard"] },
@@ -2910,6 +2912,22 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/1d/1b2ef7bcde851c78d7f17f1cca13fd6dc695fc4b3d6197941e72cae5b132/ruff-0.16.0-py3-none-win32.whl", hash = "sha256:7fab76fa065c873f41ff744347c6e77bcc3dfec4bcc754dc26b63d23c0f7f5fb", size = 10785885, upload-time = "2026-07-23T19:11:23.947Z" },
     { url = "https://files.pythonhosted.org/packages/b2/a3/d5e4ef7a56be3f928ffb90b94c25ba7d3cb9c7fe0736aeaaedf361770712/ruff-0.16.0-py3-none-win_amd64.whl", hash = "sha256:429c117f022bf481fabd9d551e7a3952b24c65e6ef44337ea09d90bebef14472", size = 11923141, upload-time = "2026-07-23T19:11:26.409Z" },
     { url = "https://files.pythonhosted.org/packages/cb/9a/8415f2657cbe200f41a4531ccededf135505a92d4a012229121f885b26f9/ruff-0.16.0-py3-none-win_arm64.whl", hash = "sha256:14296fedcd2705c77ab8235439278bbb38f285cf7da5528b00b3e330c3d4872d", size = 11273407, upload-time = "2026-07-23T19:11:28.705Z" },
+]
+
+[[package]]
+name = "sarvam-conv-ai-sdk"
+version = "1.0.21"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "uvicorn" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/b6/afeb2adc0f61a7e8c82682f2c69eda6954ae1b557c78f921d409fee60e08/sarvam_conv_ai_sdk-1.0.21.tar.gz", hash = "sha256:0ca79f71b7296c75d9c3cbeb5d22bceb246fc43927c4159ccef6b4934d7055d6", size = 77151, upload-time = "2026-07-25T10:25:47.861Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/25/b8/7054bd8a3b129b8d6b0ff1ce84d7f7d1684e8e95de9eb7e0121c7ae56676/sarvam_conv_ai_sdk-1.0.21-py3-none-any.whl", hash = "sha256:72b60221137258376420caa771d639c9d39fb30d73a3f556c1a0cba8fb71db2b", size = 60695, upload-time = "2026-07-25T10:25:46.426Z" },
 ]
 
 [[package]]

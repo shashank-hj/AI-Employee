@@ -211,10 +211,9 @@ class OpencodeProvider(LLMProvider):
                 # as a pure chat/classifier model rather than an agent.
                 "agent": self._agent,
             }
-            if self._model:
-                body["model"] = self._model
-            if self._max_tokens:
-                body["max_tokens"] = self._max_tokens
+            model_params = self._model_params()
+            if model_params:
+                body["model"] = model_params
             if format_schema:
                 body["format"] = {
                     "type": "json_schema",
@@ -237,6 +236,22 @@ class OpencodeProvider(LLMProvider):
                 await self._delete_session(session_id)
             except Exception:
                 pass
+
+    def _model_params(self) -> dict[str, str] | None:
+        """Map the configured ``providerID/modelID`` string to the object the
+        opencode server expects on the message payload.
+
+        opencode 1.18+ validates ``model`` as an object (or null), not a bare
+        string. A bare model id (no slash) is assumed to live on the built-in
+        ``opencode`` provider.
+        """
+        if not self._model:
+            return None
+        provider_id, sep, model_id = self._model.partition("/")
+        if not sep:
+            provider_id = "opencode"
+            model_id = self._model
+        return {"providerID": provider_id, "modelID": model_id}
 
     async def _create_session(self) -> dict[str, Any]:
         # Do NOT pass a client-chosen `id` — opencode assigns its own internal

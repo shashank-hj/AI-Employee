@@ -54,7 +54,6 @@ class AgentService:
                 self._llm_provider,
                 checkpointer=engine.saver,
                 approval_service=self._approval_service,
-                memory_client=self._memory_client,
             )
         return self._graph
 

@@ -1,9 +1,23 @@
 import math
 import random
+import smtplib
 from typing import Any
 
 from orchestrator.tools.base import BaseTool
 from orchestrator.tools.rag_client import RAGClient, MockRAGClient
+
+
+def _email_error(exc: Exception) -> str:
+    """Return a clear, human-readable error for SMTP/email failures."""
+    if isinstance(exc, smtplib.SMTPResponseException):
+        msg = exc.smtp_error
+        if isinstance(msg, bytes):
+            try:
+                msg = msg.decode("utf-8", "replace").strip()
+            except Exception:
+                msg = str(msg)
+        return f"Email sending failed (SMTP {exc.smtp_code}): {msg}"
+    return f"Email sending failed: {exc}"
 
 
 class CalculatorTool(BaseTool):
@@ -342,7 +356,7 @@ class GmailSendTool(BaseTool):
                 )
                 return {"success": True, "data": result}
             except Exception as exc:
-                return {"success": False, "error": str(exc)}
+                return {"success": False, "error": _email_error(exc)}
         return {
             "success": True,
             "data": {

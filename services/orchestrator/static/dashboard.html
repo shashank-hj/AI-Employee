@@ -135,6 +135,8 @@ h2{font-size:13px;color:var(--text-secondary);font-weight:400;margin-bottom:24px
 .chat-msg.assistant{align-self:flex-start;background:var(--surface-hover);border:1px solid var(--border);border-bottom-left-radius:4px}
 .chat-msg.error{align-self:flex-start;background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)}
 .chat-msg .chat-time{display:block;font-size:10px;margin-top:4px;opacity:0.6}
+.chat-msg.streaming .chat-time::after{content:'●';margin-left:6px;color:var(--accent);animation:chat-blink 1.4s infinite}
+.chat-msg.streaming.done .chat-time::after{content:'';animation:none}
 .chat-typing{align-self:flex-start;padding:10px 16px;border-radius:12px;border-bottom-left-radius:4px;background:var(--surface-hover);border:1px solid var(--border);display:flex;gap:4px}
 .chat-typing .dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation:chat-blink 1.4s infinite}
 .chat-typing .dot:nth-child(2){animation-delay:0.2s}
@@ -143,11 +145,30 @@ h2{font-size:13px;color:var(--text-secondary);font-weight:400;margin-bottom:24px
 .chat-spk{cursor:pointer;font-size:14px;margin-left:6px;opacity:0.5;transition:opacity 0.2s;background:none;border:none;color:var(--text);padding:2px 4px;border-radius:4px}
 .chat-spk:hover{opacity:1;background:var(--surface-hover)}
 .chat-spk.playing{opacity:1;color:var(--accent-light)}
-.chat-mic{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
-.chat-mic:hover{border-color:var(--accent);color:var(--accent-light)}
-.chat-mic.recording{background:var(--red);border-color:var(--red);color:#fff;animation:mic-pulse-chat 1.5s infinite}
-.chat-mic.processing{background:var(--orange);border-color:var(--orange);color:#000;cursor:wait}
-@keyframes mic-pulse-chat{0%,100%{box-shadow:0 0 0 0 rgba(255,118,117,0.4)}50%{box-shadow:0 0 0 10px rgba(255,118,117,0)}}
+.chat-lang{display:inline-block;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;margin-left:6px;border-radius:6px;background:var(--purple);color:#fff;vertical-align:middle;opacity:.85}
+.chat-lang.unknown{background:var(--text-muted)}
+.chat-msg.user .chat-lang{background:rgba(255,255,255,.28)}
+.chat-voice-wrap{position:relative;flex-shrink:0;width:56px;height:56px}
+.chat-voice-btn{position:relative;width:56px;height:56px;border-radius:50%;border:2px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.chat-voice-btn:hover{border-color:var(--accent);color:var(--accent-light);transform:translateY(-1px)}
+.chat-voice-btn .chat-voice-icon{position:relative;z-index:2;font-size:20px;line-height:1}
+.chat-voice-ripple{position:absolute;inset:-4px;border-radius:50%;pointer-events:none;opacity:0}
+.chat-voice-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--surface)}
+.chat-voice-btn.recording{background:var(--red);border-color:var(--red);color:#fff;animation:voice-btn-shake 0.5s infinite}
+.chat-voice-btn.recording .chat-voice-ripple{opacity:1;animation:voice-ring-out 1.3s ease-out infinite}
+.chat-voice-btn.recording .chat-voice-badge{display:flex}
+.chat-voice-btn.processing{background:var(--orange);border-color:var(--orange);color:#000;cursor:wait}
+.chat-voice-btn.processing .chat-voice-icon{animation:voice-spin 1.2s linear infinite}
+.chat-voice-btn.speaking{background:var(--accent);border-color:var(--accent);color:#fff;animation:voice-btn-glow 1.2s ease-in-out infinite}
+.chat-voice-btn.speaking .chat-voice-ripple{opacity:1;animation:voice-ring-out 1.1s ease-out infinite}
+.chat-voice-btn.speaking .chat-voice-badge{display:flex;background:var(--green)}
+.chat-voice-status{min-height:16px;font-size:11px;color:var(--text-muted)}
+.chat-voice-status.conv-active{color:var(--accent-light)}
+@keyframes voice-ring-out{0%{transform:scale(0.7);opacity:0.8}100%{transform:scale(1.9);opacity:0}}
+@keyframes voice-btn-shake{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes voice-btn-glow{0%,100%{box-shadow:0 0 0 0 rgba(115,207,253,0.45)}50%{box-shadow:0 0 0 12px rgba(115,207,253,0)}}
+@keyframes voice-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes voice-eq{0%,100%{height:20%}50%{height:100%}}
 .chat-voice-mode{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer}
 
 /* Chat message polish + markdown */
@@ -356,6 +377,10 @@ textarea{resize:vertical}
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
     <div><h1>AI Employee Chat</h1><h2>Conversation with voice + session memory</h2></div>
     <div style="display:flex;gap:10px;align-items:flex-start">
+      <select id="chat-channel" onchange="onChatChannelChange()" title="Which agent brain this chat talks to" style="display:none;height:36px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:0 8px;font-size:12px">
+        <option value="local">Local Agent</option>
+        <option value="samvaad">Samvaad Agent (voice)</option>
+      </select>
       <div class="vs-wrap">
         <button class="vs-btn" onclick="toggleVoiceSettings()">
           <span class="dot" id="vs-ready-dot"></span>
@@ -428,12 +453,18 @@ textarea{resize:vertical}
     </div>
     <div style="padding:14px 20px;border-top:1px solid var(--border);background:var(--surface)">
       <form id="chat-form" style="display:flex;gap:10px;align-items:flex-end">
-        <button type="button" class="chat-mic" id="chat-mic" onclick="toggleChatMic()" title="Click to record voice">&#127908;</button>
-        <button type="button" class="btn btn-danger btn-sm" id="chat-mic-stop" onclick="cancelChatMic()" style="display:none">Stop</button>
+        <div class="chat-voice-wrap" id="chat-voice-wrap">
+          <button type="button" class="chat-voice-btn" id="chat-mic" onclick="toggleChatMic()" title="Start a voice conversation" aria-label="Voice conversation">
+            <span class="chat-voice-ripple"></span>
+            <span class="chat-voice-icon">&#127908;</span>
+          </button>
+          <span class="chat-voice-badge" id="chat-voice-badge"></span>
+        </div>
         <textarea id="chat-input" placeholder="Type a message... (Enter to send, Shift+Enter for new line)" rows="1" style="flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-family:inherit;resize:none;outline:none;max-height:100px" onkeydown="chatInputKey(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
         <button id="chat-send" class="btn btn-primary" type="submit">Send</button>
       </form>
       <div id="chat-status" class="text-xs text-muted" style="margin-top:6px"></div>
+      <div id="chat-voice-status" class="chat-voice-status" style="margin-top:6px"></div>
       <div style="margin-top:6px;display:flex;align-items:center;gap:16px">
         <label class="chat-voice-mode" title="Auto-listen mode: AI responds, then mic auto-activates for next message">
           <input type="checkbox" id="chat-auto-mode" onchange="toggleAutoMode()"> Hands-free mode
@@ -595,6 +626,15 @@ textarea{resize:vertical}
   <div class="mb"><button class="btn btn-sm" onclick="loadUsage()">Refresh</button></div>
   <div id="usageKpis" class="kpi-grid"></div>
 
+  <div class="card mt">
+    <div class="card-header">
+      <h3>Samvaad Voice Agent &mdash; Usage &amp; Cost <span class="text-sm text-muted">(last <span id="su-days">14</span> days, est.)</span></h3>
+      <button class="btn btn-sm" onclick="loadSamvaadUsage()">Refresh</button>
+    </div>
+    <div id="su-body" class="text-muted">Loading…</div>
+    <div id="su-alert" style="display:none;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,80,80,.12);color:var(--red);font-weight:600"></div>
+  </div>
+
   <div class="card">
     <div class="card-header"><h3>Cost Trend</h3><span class="text-sm text-muted">INR per period</span></div>
     <div id="usageTrend"><div class="text-muted" style="padding:1rem">Loading...</div></div>
@@ -749,7 +789,7 @@ function showPage(name){
   if(name==='hitl')loadTasks();
   if(name==='overview')loadOverview();
   if(name==='rag')listRagDocs();
-  if(name==='usage')loadUsage();
+  if(name==='usage'){loadUsage();loadSamvaadUsage()}
   if(name==='channels')loadChannelStats();
   if(name==='tools')loadTools();
   if(name==='gmail')loadGmailInbox();
@@ -768,6 +808,268 @@ var chatSessionId=localStorage.getItem('ai_employee_dash_session')||('dash-'+Dat
 localStorage.setItem('ai_employee_dash_session',chatSessionId);
 var chatUserId=localStorage.getItem('ai_employee_dash_user')||('dash-user-'+Date.now().toString(36));
 localStorage.setItem('ai_employee_dash_user',chatUserId);
+
+// ── SAMVAAD (opt-in hosted-agent channel) ──
+var samvaadEnabled=false;
+var samvaadWs=null;
+var samvaadActive=false;
+var samvaadReplyHandler=null;
+var samvaadAudioHandler=null;
+var samvaadTranscriptHandler=null;
+var samvaadPlayer=null;
+var samvaadPlayCtx=null;
+var samvaadScheduledUntil=0;
+
+function checkSamvaadStatus(){
+  return fetch(ORCH_URL+'/api/samvaad/status',{signal:AbortSignal.timeout(5000)})
+    .then(function(r){if(!r.ok)throw new Error('status');return r.json()})
+    .then(function(d){
+      samvaadEnabled=!!d.enabled;
+      var sel=$('chat-channel');
+      if(sel)sel.style.display=samvaadEnabled?'inline-block':'none';
+    })
+    .catch(function(){samvaadEnabled=false;});
+}
+function loadSamvaadUsage(){
+  var body=$('su-body'),alertEl=$('su-alert');
+  if(body)body.textContent='Loading…';
+  if(alertEl)alertEl.style.display='none';
+  fetch(ORCH_URL+'/api/samvaad/usage?days=14',{signal:AbortSignal.timeout(15000)})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      var daysEl=$('su-days');if(daysEl)daysEl.textContent=d.days||14;
+      if(!d.available){
+        if(body)body.textContent='Estimate unavailable: '+(d.reason||'unknown');
+        return;
+      }
+      if(body){
+        var top=(d.sessions||[]).slice(0,3).map(function(s){
+          return '<div>• <span class="text-muted">'+new Date(s.start_datetime).toLocaleDateString()+'</span> — '+(s.turns||0)+' turns, '+Math.round((s.duration_seconds||0)/60*10)/10+' min — <b>Rs '+s.cost_glm_rs+'</b> (GLM) / Rs '+s.cost_105b_rs+' (105B)</div>';
+        }).join('');
+        body.innerHTML='<div>Total est. spend: <b style="color:var(--accent-light)">Rs '+d.total_glm_rs+'</b> (if GLM) / <b>Rs '+d.total_105b_rs+'</b> (if 105B) — '+d.session_count+' sessions</div>'+
+          (top?'<div style="margin-top:6px">Most expensive:'+top+'</div>':'');
+      }
+      if(alertEl && d.total_glm_rs>=(d.spend_alert_rs||25)){
+        alertEl.style.display='block';
+        alertEl.textContent='⚠ Estimated Samvaad spend (Rs '+d.total_glm_rs+') is over your Rs '+(d.spend_alert_rs||25)+' alert threshold.';
+      }
+    })
+    .catch(function(){if(body)body.textContent='Usage estimate unavailable.';});
+}
+function chatChannel(){var sel=$('chat-channel');return(samvaadEnabled&&sel&&sel.value==='samvaad')?'samvaad':'local'}
+
+// ── Samvaad transcript language auto-detection ──
+var LANGS={};function langName(code){
+  if(!code||code==='unknown')return'';
+  var base=(code.split('-')[0]||code).toLowerCase();
+  var map={'en':'English','hi':'Hindi','bn':'Bengali','ta':'Tamil','te':'Telugu','kn':'Kannada','ml':'Malayalam','mr':'Marathi','gu':'Gujarati','pa':'Punjabi','or':'Odia','od':'Odia','sa':'Sanskrit','as':'Assamese','ne':'Nepali','ur':'Urdu'};
+  return map[base]||code.toUpperCase();
+}
+function setMsgLang(el,label){
+  if(!el)return;
+  var b=el.querySelector('.chat-lang');
+  if(!b){b=document.createElement('span');b.className='chat-lang';el.appendChild(b)}
+  b.textContent=label||'';
+  b.classList.toggle('unknown',!label);
+}
+function detectChatLang(text){
+  return new Promise(function(resolve){
+    var t=(text||'').trim();
+    if(t.length<1){resolve('');return}
+    fetch(SPEECH_URL+'/api/detect-language',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t}),signal:AbortSignal.timeout(8000)})
+      .then(function(r){if(!r.ok)throw new Error(''+r.status);return r.json()})
+      .then(function(d){resolve(langName(d.language_code))})
+      .catch(function(){resolve('')});
+  });
+}
+function tagMsgLang(el,text){
+  if(!el)return;
+  detectChatLang(text).then(function(label){setMsgLang(el,label)});
+}
+
+
+function onChatChannelChange(){
+  if(chatChannel()==='samvaad'){
+    if(samvaadWs&&samvaadActive){try{samvaadWs.close()}catch(e){}samvaadWs=null}
+    showChatStatus('Samvaad (voice) active. Tap the mic to start a voice conversation. Tip: typing text is cheaper for testing — no STT/TTS.');
+  }else{
+    if(samvaadConvActive)stopSamvaadConversation();
+    showChatStatus('')
+  }
+}
+function samvaadWsUrl(){
+  return((location.protocol==='https:')?'wss://':'ws://')+location.host+'/api/samvaad/ws';
+}
+function samvaadLang(){
+  var map={'hi-IN':'Hindi','bn-IN':'Bengali','ta-IN':'Tamil','te-IN':'Telugu','kn-IN':'Kannada','ml-IN':'Malayalam','mr-IN':'Marathi','gu-IN':'Gujarati','pa-IN':'Punjabi','od-IN':'Odia'};
+  return map[voiceSettings.tts_lang||'en-IN']||'English';
+}
+function samvaadInit(mode){
+  return new Promise(function(resolve,reject){
+    if(samvaadWs&&samvaadActive){try{samvaadWs.close()}catch(e){}samvaadWs=null}
+    samvaadActive=true;
+    var ws=new WebSocket(samvaadWsUrl());
+    samvaadWs=ws;
+    var settled=false;
+    function fail(m){if(settled)return;settled=true;samvaadActive=false;samvaadWs=null;reject(new Error(m||'Samvaad connection failed'))}
+    ws.onopen=function(){ws.send(JSON.stringify({type:'init',user_id:chatUserId,mode:mode,language:samvaadLang(),agent_variables:{}}))};
+    ws.onerror=function(){fail('Samvaad connection error')};
+    ws.onclose=function(){samvaadActive=false};
+    ws.onmessage=function(ev){
+      var d={};try{d=JSON.parse(ev.data)}catch(e){}
+      if(d.type==='error'){fail(d.message||'Samvaad error')}
+      else if(d.type==='session'){settled=true;resolve(ws)}
+      else if(d.type==='text'){if(samvaadReplyHandler)samvaadReplyHandler(d.text,d.status)}
+      else if(d.type==='transcript'){if(samvaadTranscriptHandler)samvaadTranscriptHandler(d.role,d.content)}
+      else if(d.type==='audio'&&d.audio_base64){if(samvaadAudioHandler)samvaadAudioHandler(d.audio_base64,d.sample_rate||16000)}
+    };
+  });
+}
+async function sendSamvaadChat(text){
+  var ws=samvaadWs&&samvaadActive?samvaadWs:await samvaadInit('chat');
+  return new Promise(function(resolve,reject){
+    var settled=false;
+    var userBubble=addChatMsg('user',text);tagMsgLang(userBubble,text);
+    var botBubble=null,botText='';
+    function done(reply){if(settled)return;settled=true;clearTimeout(timer);samvaadReplyHandler=null;samvaadAudioHandler=null;samvaadTranscriptHandler=null;
+      if(!botBubble&&reply){botBubble=addChatMsg('assistant',reply);tagMsgLang(botBubble,reply)}
+      resolve(reply)}
+    var timer=setTimeout(function(){done(botText||'(no response)')},90000);
+    samvaadReplyHandler=function(t,status){if(t)botText=t;if(status==='completed')done(t)};
+    samvaadTranscriptHandler=function(role,content){
+      if(!content)return;
+      if(role==='user'){if(!userBubble){userBubble=addChatMsg('user',content);tagMsgLang(userBubble,content)}}
+      else if(role==='bot'||role==='assistant'){botText=content;if(botBubble)updateChatBubble(botBubble,content);else botBubble=addChatMsg('assistant',content,null,true);tagMsgLang(botBubble,content)}
+    };
+    ws.send(JSON.stringify({type:'text',data:{text:text}}));
+  });
+}
+function samvaadBytesToB64(bytes){
+  var binary='';var chunk=0x8000;
+  for(var i=0;i<bytes.length;i+=chunk){binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk))}
+  return btoa(binary);
+}
+function samvaadPcm16(blob){
+  return new Promise(function(resolve,reject){
+    var fr=new FileReader();
+    fr.onload=function(){
+      var ctx=new(window.AudioContext||window.webkitAudioContext)();
+      ctx.decodeAudioData(fr.result).then(function(buffer){
+        var target=16000,source=buffer.sampleRate,ratio=target/source;
+        var outLen=Math.round(buffer.length*ratio),ch=buffer.getChannelData(0);
+        var bytes=new Uint8Array(outLen*2);
+        for(var i=0;i<outLen;i++){
+          var pos=i/ratio,i0=Math.floor(pos),i1=Math.min(i0+1,ch.length-1),frac=pos-i0;
+          var s=ch[i0]*(1-frac)+ch[i1]*frac;
+          s=Math.max(-1,Math.min(1,s));
+          var v=s<0?s*0x8000:s*0x7FFF;
+          bytes[i*2]=v&0xff;bytes[i*2+1]=(v>>8)&0xff;
+        }
+        ctx.close();resolve(bytes);
+      }).catch(reject);
+    };
+    fr.onerror=reject;fr.readAsArrayBuffer(blob);
+  });
+}
+function pcm16ToWavBlob(base64,sampleRate){
+  var chars=atob(base64),bytes=new Uint8Array(chars.length);
+  for(var i=0;i<chars.length;i++)bytes[i]=chars.charCodeAt(i);
+  var sr=sampleRate||16000,dataSize=bytes.length,buf=new ArrayBuffer(44+dataSize),view=new DataView(buf);
+  function w(o,s){for(var k=0;k<s.length;k++)view.setUint8(o+k,s.charCodeAt(k))}
+  w(0,'RIFF');view.setUint32(4,36+dataSize,true);w(8,'WAVE');w(12,'fmt ');
+  view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
+  view.setUint32(24,sr,true);view.setUint32(28,sr*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);
+  w(36,'data');view.setUint32(40,dataSize,true);
+  new Uint8Array(buf,44).set(bytes);
+  return new Blob([buf],{type:'audio/wav'});
+}
+var samvaadAudioQueue=[];
+var samvaadAutoReArm=false;
+function samvaadPlayDone(){
+  samvaadPlayer=null;
+  if(samvaadConvActive&&samvaadConvPendingReArm){samvaadConvPendingReArm=false;setTimeout(function(){samvaadConvListen()},500);return}
+  if(samvaadAutoReArm){samvaadAutoReArm=false;setTimeout(function(){$('chat-mic').click()},400)}
+}
+function playSamvaadAudio(blob){
+  if(!samvaadPlayCtx||samvaadPlayCtx.state==='closed'){samvaadPlayCtx=new(window.AudioContext||window.webkitAudioContext)()}
+  var ctx=samvaadPlayCtx;
+  if(ctx.state==='suspended'){try{ctx.resume()}catch(e){}}
+  blob.arrayBuffer().then(function(buf){
+    return ctx.decodeAudioData(buf);
+  }).then(function(decoded){
+    samvaadAudioQueue.push(decoded);
+    if(!samvaadPlayer)samvaadPumpAudio();
+  }).catch(function(){});
+}
+function samvaadPumpAudio(){
+  if(!samvaadPlayCtx||samvaadPlayCtx.state==='closed'){samvaadPlayCtx=new(window.AudioContext||window.webkitAudioContext)()}
+  var ctx=samvaadPlayCtx;
+  if(ctx.state==='suspended'){try{ctx.resume()}catch(e){}}
+  while(samvaadAudioQueue.length){
+    var buf=samvaadAudioQueue.shift();
+    var src=ctx.createBufferSource();
+    src.buffer=buf;
+    src.connect(ctx.destination);
+    var t=Math.max(ctx.currentTime,samvaadScheduledUntil);
+    src.start(t);
+    samvaadScheduledUntil=t+buf.duration;
+    src.onended=function(){
+      if(!samvaadAudioQueue.length&&ctx.currentTime>=samvaadScheduledUntil-0.02)samvaadPlayDone();
+    };
+    samvaadPlayer=ctx;
+  }
+  if(!samvaadAudioQueue.length){
+    setTimeout(function(){
+      if(!samvaadPlayer)return;
+      if(samvaadPlayCtx&&samvaadPlayCtx.currentTime>=samvaadScheduledUntil-0.02&&!samvaadAudioQueue.length)samvaadPlayDone();
+    },120);
+  }
+}
+function samvaadArmAutoMode(){samvaadAutoReArm=true}
+async function samvaadVoiceTurn(webmBlob,opts){
+  opts=opts||{};
+  try{
+    var ws=samvaadWs&&samvaadActive?samvaadWs:await samvaadInit('call');
+    var pcm=await samvaadPcm16(webmBlob);
+    showChatStatus('Samvaad agent listening...');
+    var userBubble=null,botBubble=null,botText='',finalText='',finished=false;
+    function finish(){
+      if(finished)return;finished=true;
+      clearTimeout(timer);samvaadReplyHandler=null;samvaadAudioHandler=null;samvaadTranscriptHandler=null;
+      var reply=finalText||botText;
+      if(botBubble){
+        if(reply&&botBubble.getAttribute('data-text')!==escAttr(reply))updateChatBubble(botBubble,reply);
+        botBubble.classList.add('done');
+      }
+      if(reply){lastAssistantText=reply;$('chat-speak-last').style.display='inline-block'}
+      if(opts.conversation){
+        samvaadConvPendingReArm=true;
+        setChatMicState('');
+        if(!samvaadAudioQueue.length&&!samvaadPlayer){setTimeout(function(){if(samvaadConvActive&&samvaadConvPendingReArm){samvaadConvPendingReArm=false;samvaadConvListen()}},500)}
+      }else if(autoMode){samvaadArmAutoMode()}
+      showChatStatus('');
+    }
+    var timer=setTimeout(finish,90000);
+    samvaadReplyHandler=function(t,status){
+      if(t){finalText=t}
+      if(status==='completed'&&t)finish();
+    };
+    samvaadAudioHandler=function(audioB64,sr){if(opts.conversation&&samvaadConvActive){setChatMicState('speaking');setChatVoiceStatus('Agent speaking...')}playSamvaadAudio(pcm16ToWavBlob(audioB64,sr))};
+    samvaadTranscriptHandler=function(role,content){
+      if(!content)return;
+      if(role==='user'){
+        if(!userBubble){userBubble=addChatMsg('user',content);tagMsgLang(userBubble,content)}
+      }else if(role==='bot'||role==='assistant'){
+        botText=content;
+        if(botBubble){updateChatBubble(botBubble,content)}
+        else{botBubble=addChatMsg('assistant',content,null,true)}
+        tagMsgLang(botBubble,content);
+      }
+    };
+    ws.send(JSON.stringify({type:'audio',data:samvaadBytesToB64(pcm)}));
+  }catch(e){showChatStatus('Samvaad voice error: '+e.message,'error')}
+  finally{setChatMicState('');$('chat-mic').title='Tap mic to start voice conversation'}
+}
 
 // ── Voice settings (shared across chat + voice pages) ──
 var VS_KEY='ai_employee_voice_settings';
@@ -862,11 +1164,11 @@ async function loadChatHistory(){
   }catch(e){}
 }
 
-function addChatMsg(role,text,time){
+function addChatMsg(role,text,time,streaming){
   var w=$('page-chat').querySelector('.chat-welcome');
   if(w)w.style.display='none';
   var el=document.createElement('div');
-  el.className='chat-msg '+role;
+  el.className='chat-msg '+role+(streaming?' streaming':'');
   el.setAttribute('data-text',escAttr(text));
   var content;
   if(role==='assistant'){
@@ -881,6 +1183,17 @@ function addChatMsg(role,text,time){
   lastAssistantText=role==='assistant'?text:lastAssistantText;
   if(role==='assistant'){$('chat-speak-last').style.display='inline-block'}
   return el
+}
+
+function updateChatBubble(el,text){
+  if(!el)return;
+  var time=el.querySelector('.chat-time');
+  var t=time?time.outerHTML:'';
+  el.setAttribute('data-text',escAttr(text));
+  el.innerHTML=renderMarkdown(text)+'<span class="chat-msg-actions"><button class="chat-action-copy" onclick="copyChatMsg(this)" title="Copy">&#128203;</button><button class="chat-spk" onclick="speakText(this)" data-text="'+escAttr(text)+'" title="Read aloud">&#128266;</button></span>'+t;
+  el.classList.add('streaming');
+  $('chat-msgs').scrollTop=$('chat-msgs').scrollHeight;
+  return el;
 }
 
 function renderMarkdown(text){
@@ -937,15 +1250,23 @@ document.getElementById('chat-form').addEventListener('submit',async function(e)
   e.preventDefault();
   var input=$('chat-input');var text=input.value.trim();if(!text)return;
   input.value='';input.style.height='auto';
-  addChatMsg('user',text);$('chat-send').disabled=true;
+  $('chat-send').disabled=true;
   $('chat-status').textContent='';
-  showChatTyping(true);
   try{
-    var reply=await sendChat(text);
-    showChatTyping(false);
-    addChatMsg('assistant',reply);
-    if(autoMode){speakLast()}
-    else if(voiceSettings.autospeak){doSpeak(reply)}
+    if(chatChannel()==='samvaad'){
+      var reply=await sendSamvaadChat(text);
+      showChatTyping(false);
+      if(autoMode){speakLast()}
+      else if(voiceSettings.autospeak){doSpeak(reply)}
+    }else{
+      addChatMsg('user',text);
+      showChatTyping(true);
+      var reply=await sendChat(text);
+      showChatTyping(false);
+      addChatMsg('assistant',reply);
+      if(autoMode){speakLast()}
+      else if(voiceSettings.autospeak){doSpeak(reply)}
+    }
   }catch(err){
     showChatTyping(false);
     var el=document.createElement('div');
@@ -971,9 +1292,45 @@ var autoMode=false;
 var chatMicRecorder=null,chatMicChunks=[],chatAudioBlob=null;
 var ttsAudio=null,ttsPlaying=false,ttsBtnChat=null,ttsBtnVoice=null;
 
+// Samvaad conversation mode
+var samvaadConvActive=false;
+var samvaadConvStream=null;
+var samvaadConvRecorder=null;
+var samvaadConvChunks=[];
+var samvaadConvVadTimer=null;
+var samvaadConvVadCtx=null;
+var samvaadConvVadSrc=null;
+var samvaadConvVadAnalyser=null;
+var samvaadConvPendingReArm=false;
+var samvaadConvBusy=false;
+
+function beep(){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    var o=ctx.createOscillator();var g=ctx.createGain();
+    o.type='sine';o.frequency.value=880;g.gain.value=0.15;
+    o.connect(g);g.connect(ctx.destination);
+    o.start();o.stop(ctx.currentTime+0.15);
+    setTimeout(function(){try{ctx.close()}catch(e){}},500);
+  }catch(e){}
+}
+
 function toggleAutoMode(){autoMode=$('chat-auto-mode').checked}
 
+function setChatMicState(state){
+  var b=$('chat-mic');
+  b.classList.remove('recording','processing','speaking');
+  if(state)b.classList.add(state);
+}
+function setChatVoiceStatus(msg,active){
+  var el=$('chat-voice-status');
+  el.textContent=msg||'';
+  el.classList.toggle('conv-active',!!active);
+}
+
 async function toggleChatMic(){
+  if(chatChannel()==='samvaad'){return toggleSamvaadConversation()}
+  // Local STT single-shot flow
   if(chatMicRecorder&&chatMicRecorder.state==='recording'){stopChatMic();return}
   if(chatMicRecorder&&chatMicRecorder.state==='inactive'){startChatMicRecording();return}
   try{
@@ -987,21 +1344,22 @@ async function toggleChatMic(){
 
 function startChatMicRecording(){
   chatMicChunks=[];chatAudioBlob=null;chatMicRecorder.start();
-  $('chat-mic').classList.add('recording');$('chat-mic').classList.remove('processing');
-  $('chat-mic').title='Click to stop';$('chat-mic-stop').style.display='inline-block';
-  $('chat-status').textContent='Listening... (click mic or Stop to end)';
+  setChatMicState('recording');
+  $('chat-mic').title='Click to stop';
+  $('chat-status').textContent='Listening... (click mic to stop)';
 }
 
 function stopChatMic(){
-  chatMicRecorder.stop();$('chat-mic').classList.remove('recording');$('chat-mic').classList.add('processing');
-  $('chat-mic').title='Processing...';$('chat-mic-stop').style.display='none';
+  chatMicRecorder.stop();setChatMicState('processing');
+  $('chat-mic').title='Processing...';
   $('chat-status').textContent='Processing audio...';
 }
 
 function cancelChatMic(){
   if(chatMicRecorder){var stream=chatMicRecorder.stream;chatMicRecorder.stop();if(stream)stream.getTracks().forEach(function(t){t.stop()})}
-  $('chat-mic').classList.remove('recording','processing');$('chat-mic').title='Click to record';
-  $('chat-mic-stop').style.display='none';$('chat-status').textContent='Recording cancelled';
+  setChatMicState('');
+  $('chat-mic').title='Tap mic to start voice conversation';
+  $('chat-status').textContent='Recording cancelled';
 }
 
 async function processChatMicAudio(){
@@ -1015,10 +1373,99 @@ async function processChatMicAudio(){
     var r=await fetch(SPEECH_URL+'/api/speech-to-text',{method:'POST',body:fd});
     if(!r.ok)throw new Error('STT failed: '+r.status);
     var d=await r.json();var text=d.transcript||'';
-    if(text){$('chat-input').value=text;$('chat-status').textContent='Transcribed: '+text;document.getElementById('chat-form').dispatchEvent(new Event('submit',{cancelable:true}))}
+    if(text&&(text.indexOf('credits')>=0||text.indexOf('402')>=0||text.indexOf('not configured')>=0)){
+      showChatStatus(text,'error');
+    }else if(text){$('chat-input').value=text;$('chat-status').textContent='Transcribed: '+text;document.getElementById('chat-form').dispatchEvent(new Event('submit',{cancelable:true}))}
     else{$('chat-status').textContent='No speech detected'}
   }catch(e){$('chat-status').textContent='STT error: '+e.message}
-  $('chat-mic').classList.remove('processing');$('chat-mic').title='Click to record';
+  setChatMicState('');
+  $('chat-mic').title='Tap mic to start voice conversation';
+}
+
+// ── Samvaad continuous conversation (like real Samvaad) ──
+async function toggleSamvaadConversation(){
+  if(samvaadConvActive){stopSamvaadConversation();return}
+  try{
+    samvaadConvStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    samvaadConvActive=true;
+    samvaadConvPendingReArm=false;
+    setChatMicState('recording');
+    setChatVoiceStatus('Connected. Speak now — I\'ll reply, then listen again. Tap mic to end.',true);
+    $('chat-mic').title='Tap mic to end conversation';
+    $('chat-status').textContent='Voice conversation started. Speak after the beep.';
+    beep();
+    await samvaadConvListen();
+  }catch(e){
+    samvaadConvActive=false;
+    setChatMicState('');
+    setChatVoiceStatus('');
+    $('chat-status').textContent='Microphone denied';
+  }
+}
+
+function stopSamvaadConversation(){
+  samvaadConvActive=false;
+  samvaadConvPendingReArm=false;
+  if(samvaadPlayCtx){try{samvaadPlayCtx.close()}catch(e){}samvaadPlayCtx=null}
+  samvaadAudioQueue.length=0;samvaadPlayer=null;samvaadScheduledUntil=0;
+  if(samvaadConvVadTimer){clearInterval(samvaadConvVadTimer);samvaadConvVadTimer=null}
+  if(samvaadConvVadCtx){try{samvaadConvVadCtx.close()}catch(e){}samvaadConvVadCtx=null;samvaadConvVadSrc=null;samvaadConvVadAnalyser=null}
+  if(samvaadConvRecorder&&samvaadConvRecorder.state==='recording'){try{samvaadConvRecorder.stop()}catch(e){}}
+  if(samvaadConvStream){samvaadConvStream.getTracks().forEach(function(t){t.stop()});samvaadConvStream=null}
+  if(samvaadWs){try{samvaadWs.close()}catch(e){}samvaadWs=null;samvaadActive=false}
+  setChatMicState('');
+  $('chat-mic').title='Tap mic to start voice conversation';
+  setChatVoiceStatus('');
+  $('chat-status').textContent='Voice conversation ended';
+}
+
+async function samvaadConvListen(){
+  if(!samvaadConvActive||!samvaadConvStream)return;
+  samvaadConvChunks=[];
+  setChatMicState('recording');
+  setChatVoiceStatus('Listening... (pause speaking to send)',true);
+  var mime='audio/webm;codecs=opus';
+  if(!MediaRecorder.isTypeSupported(mime))mime='audio/webm';
+  samvaadConvRecorder=new MediaRecorder(samvaadConvStream,{mimeType:mime});
+  samvaadConvRecorder.ondataavailable=function(e){if(e.data.size>0)samvaadConvChunks.push(e.data)};
+  samvaadConvRecorder.onstop=async function(){
+    if(samvaadConvVadTimer){clearInterval(samvaadConvVadTimer);samvaadConvVadTimer=null}
+    if(samvaadConvActive)await samvaadConvSend();
+  };
+  samvaadConvRecorder.start();
+  // Silence detection: auto-stop after ~1.2s of quiet once speech has started
+  var silenceStart=null,heardSpeech=false;
+  samvaadConvVadTimer=setInterval(function(){
+    if(!samvaadConvRecorder||samvaadConvRecorder.state!=='recording'){return}
+    var ctx=samvaadConvVadCtx||null;
+    if(!ctx){samvaadConvVadCtx=new(window.AudioContext||window.webkitAudioContext)();samvaadConvVadSrc=samvaadConvVadCtx.createMediaStreamSource(samvaadConvStream);samvaadConvVadAnalyser=samvaadConvVadCtx.createAnalyser();samvaadConvVadAnalyser.fftSize=2048;samvaadConvVadSrc.connect(samvaadConvVadAnalyser)}
+    var data=new Float32Array(samvaadConvVadAnalyser.fftSize);
+    samvaadConvVadAnalyser.getFloatTimeDomainData(data);
+    var sum=0;
+    for(var i=0;i<data.length;i++){sum+=data[i]*data[i]}
+    var rms=Math.sqrt(sum/data.length);
+    if(rms>0.012){heardSpeech=true;silenceStart=null}
+    else if(heardSpeech){
+      if(silenceStart===null)silenceStart=Date.now();
+      else if(Date.now()-silenceStart>=1200){try{samvaadConvRecorder.stop()}catch(e){}}
+    }
+  },150);
+  // Hard cap: 30s max per utterance
+  setTimeout(function(){if(samvaadConvRecorder&&samvaadConvRecorder.state==='recording'){try{samvaadConvRecorder.stop()}catch(e){}}},30000);
+}
+
+async function samvaadConvSend(){
+  if(samvaadConvBusy)return;
+  samvaadConvBusy=true;
+  setChatMicState('processing');
+  setChatVoiceStatus('Agent is thinking...',true);
+  try{
+    if(!samvaadConvChunks.length){samvaadConvBusy=false;if(samvaadConvActive){setTimeout(samvaadConvListen,300)}return}
+    var blob=new Blob(samvaadConvChunks,{type:'audio/webm'});
+    await samvaadVoiceTurn(blob,{conversation:true});
+  }catch(e){setChatVoiceStatus('Voice error: '+e.message,true)}
+  samvaadConvBusy=false;
+  if(samvaadConvActive){samvaadConvPendingReArm=true}
 }
 
 async function doSpeak(text){
@@ -1687,6 +2134,7 @@ function toggleTheme(){
 // ── INIT ──
 loadOverview();loadTasks();loadMemoryStats();listRagDocs();loadUsage();loadChannelStats();loadTools();loadCalendar();
 initVoicePanel();
+checkSamvaadStatus();
 setInterval(loadTasks,15000);setInterval(loadUsage,30000);setInterval(loadChannelStats,30000);setInterval(loadOverview,30000);setInterval(loadMemoryStats,60000);
 </script>
 </body>

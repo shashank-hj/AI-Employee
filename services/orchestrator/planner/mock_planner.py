@@ -5,6 +5,19 @@ from orchestrator.graph.state import PlanStep, AgentState
 from orchestrator.planner.base import BasePlanner
 
 
+_GREETING_SET = frozenset({
+    "hello", "hi", "hey", "yo", "howdy", "sup", "greetings",
+    "hello there", "hey there", "hi there",
+    "good morning", "good afternoon", "good evening",
+    "what's up", "whats up",
+})
+
+GREETING_RESPONSE = (
+    "Hello! I'm your AI Employee assistant. How can I help you today? "
+    "I can answer questions, look up documents, schedule meetings, send emails, and more."
+)
+
+
 INTENT_PATTERNS: list[tuple[str, str, dict]] = [
     (
         r"\b(weather|temperature|forecast|rain|sunny|snow|climate|humidity)\b",
@@ -118,6 +131,12 @@ class MockPlanner(BasePlanner):
 
     async def create_plan(self, state: AgentState) -> list[PlanStep]:
         user_input = state["user_input"]
+
+        clean = user_input.lower().strip().strip(".,!?;:")
+        if clean in _GREETING_SET:
+            state["final_response"] = GREETING_RESPONSE
+            return []
+
         steps: list[PlanStep] = []
         seen_tools: set[str] = set()
         has_specific_tool = False

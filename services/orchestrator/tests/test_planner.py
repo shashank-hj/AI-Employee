@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from shared.llm.base import IntentClassification, LLMProvider, LLMResponse
@@ -45,6 +47,31 @@ class _FakeLLMProvider(LLMProvider):
 
     async def generate(self, system_prompt: str, user_message: str) -> LLMResponse:
         return LLMResponse(content="Fake response", model="fake-model")
+
+    async def health_check(self) -> bool:
+        return True
+
+
+class _DraftLLMProvider(LLMProvider):
+    """LLM whose generate() returns a canned email-draft JSON object."""
+
+    def __init__(self, draft: dict):
+        self._draft = draft
+
+    async def classify_intent(
+        self,
+        user_input: str,
+        context: str | None = None,
+    ) -> IntentClassification:
+        return IntentClassification(
+            intent="email",
+            confidence=0.9,
+            reason=f"Fake classification for: {user_input[:50]}",
+            suggested_tools=["email_send"],
+        )
+
+    async def generate(self, system_prompt: str, user_message: str) -> LLMResponse:
+        return LLMResponse(content=json.dumps(self._draft), model="fake-model")
 
     async def health_check(self) -> bool:
         return True
@@ -133,6 +160,14 @@ class TestMockPlanner:
         plan = await planner.create_plan(state)
         assert len(plan) == 1
         assert plan[0]["tool_name"] == "search_documents"
+
+    @pytest.mark.asyncio
+    async def test_greeting_short_circuits_without_search(self):
+        planner = MockPlanner()
+        state = _make_state("hi")
+        plan = await planner.create_plan(state)
+        assert plan == []
+        assert state.get("final_response") is not None
 
     @pytest.mark.asyncio
     async def test_plan_steps_have_required_fields(self):
@@ -243,6 +278,37 @@ class TestLLMPlanner:
         assert attendees == ["bob@example.com", "carol@example.com"]
 
     @pytest.mark.asyncio
+    async def test_email_uses_structured_recipient_from_redacted_input(self):
+        llm = _FakeLLMProvider(intent="email", confidence=0.95)
+        planner = LLMPlanner(llm_provider=llm)
+        state = _make_state("Can you send email to [EMAIL]")
+        state["request_metadata"] = {"attendees": ["hjshashank77@gmail.com"]}
+        state["contact"] = {"user_id": "u1", "email": "shashankhj1@gmail.com"}
+        plan = await planner.create_plan(state)
+        email_step = next(s for s in plan if s["tool_name"] in ("email_send", "send_email"))
+        assert email_step["parameters"]["to"] == "hjshashank77@gmail.com"
+
+    @pytest.mark.asyncio
+    async def test_email_placeholder_substituted_from_structured_emails(self):
+        llm = _DraftLLMProvider({"to": "[EMAIL]", "subject": "Demo", "body": "Hello"})
+        planner = LLMPlanner(llm_provider=llm)
+        state = _make_state("Can you send email to [EMAIL]")
+        state["request_metadata"] = {"attendees": ["hjshashank77@gmail.com"]}
+        plan = await planner.create_plan(state)
+        email_step = next(s for s in plan if s["tool_name"] in ("email_send", "send_email"))
+        assert email_step["parameters"]["to"] == "hjshashank77@gmail.com"
+
+    @pytest.mark.asyncio
+    async def test_email_uses_contact_email_when_no_attendees(self):
+        llm = _DraftLLMProvider({"to": "[EMAIL]", "subject": "Demo", "body": "Hello"})
+        planner = LLMPlanner(llm_provider=llm)
+        state = _make_state("Can you send email to [EMAIL]")
+        state["contact"] = {"user_id": "u1", "email": "hjshashank77@gmail.com"}
+        plan = await planner.create_plan(state)
+        email_step = next(s for s in plan if s["tool_name"] in ("email_send", "send_email"))
+        assert email_step["parameters"]["to"] == "hjshashank77@gmail.com"
+
+    @pytest.mark.asyncio
     async def test_schedule_meeting_merges_structured_attendees(self):
         llm = _FakeLLMProvider(intent="booking", confidence=0.88, suggested_tools=["schedule_meeting"])
         planner = LLMPlanner(llm_provider=llm)
@@ -278,6 +344,15 @@ class TestLLMPlanner:
         plan = await planner.create_plan(state)
         assert len(plan) == 1
         assert plan[0]["tool_name"] == "search_documents"
+
+    @pytest.mark.asyncio
+    async def test_greeting_short_circuits_without_tools(self):
+        llm = _FakeLLMProvider(intent="general", confidence=0.9)
+        planner = LLMPlanner(llm_provider=llm)
+        state = _make_state("hi")
+        plan = await planner.create_plan(state)
+        assert plan == []
+        assert state.get("final_response") is not None
 
     @pytest.mark.asyncio
     async def test_fallback_on_classification_error(self):

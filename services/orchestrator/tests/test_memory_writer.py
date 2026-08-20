@@ -249,6 +249,52 @@ class TestAgentServiceMemoryWriterIntegration:
         response = await service.run(request)
         assert response.final_response is not None
 
+    async def test_run_persists_conversation_once(self):
+        """Regression: a single turn must persist exactly one user + one assistant
+        message. Previously the respond node AND AgentService both stored the turn,
+        doubling every message in session history (caused the chat UI to 'mix'
+        duplicated old content)."""
+        from orchestrator.planner.mock_planner import MockPlanner
+        from orchestrator.context.builder import MockContextBuilder
+        from orchestrator.tools.registry import ToolRegistry
+        from orchestrator.tools.mock_tools import register_mock_tools
+        from orchestrator.tools.rag_client import MockRAGClient
+        from orchestrator.services.mock_services import MockOrderService, MockCalendarService, MockPricingService
+
+        registry = ToolRegistry()
+        register_mock_tools(
+            registry,
+            rag_client=MockRAGClient(),
+            order_service=MockOrderService(),
+            calendar_service=MockCalendarService(),
+            pricing_service=MockPricingService(),
+        )
+
+        mock_memory = AsyncMock(spec=MemoryClient)
+        service = AgentService(
+            tool_registry=registry,
+            planner=MockPlanner(),
+            context_builder=MockContextBuilder(),
+            llm_provider=None,
+            memory_writer=None,
+            memory_client=mock_memory,
+        )
+
+        request = AgentRequest(
+            user_input="What is 5 + 5?",
+            user_id="test-user-42",
+            session_id="test-session-99",
+        )
+        response = await service.run(request)
+
+        mock_memory.upsert_session.assert_awaited_once()
+        calls = mock_memory.add_message.await_args_list
+        assert len(calls) == 2, f"expected exactly 2 add_message calls, got {len(calls)}"
+        assert calls[0].args[0] == "test-session-99" and calls[0].args[1] == "user"
+        assert calls[0].args[2] == "What is 5 + 5?"
+        assert calls[1].args[0] == "test-session-99" and calls[1].args[1] == "assistant"
+        assert calls[1].args[2] == response.final_response
+
 
 class TestFactExtractorParseResponse:
     """Verify fixes for JSON parsing edge cases."""

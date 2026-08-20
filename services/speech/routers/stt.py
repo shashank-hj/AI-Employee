@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, WebSocket, WebSo
 from shared.usage.pricing import estimate_audio_seconds
 from shared.usage.records import UsageRecord
 from speech.container import get_stt_provider, get_usage_recorder
-from speech.providers.stt import SarvamSTTProvider
+from speech.providers.stt import SarvamQuotaError, SarvamSTTProvider
 from speech.providers.word_timestamps import estimate_word_timestamps
 from speech.schemas.stt import SpeechToTextResponse
 
@@ -71,6 +71,12 @@ async def speech_to_text(
             transcript=result["transcript"],
             language_code=result["language_code"],
             word_timestamps=word_timestamps,
+        )
+    except SarvamQuotaError as exc:
+        logger.warning("stt_quota_error", error=str(exc))
+        return SpeechToTextResponse(
+            transcript=str(exc),
+            language_code="unknown",
         )
     except Exception as exc:
         duration_ms = (time.perf_counter() - start) * 1000
@@ -157,6 +163,9 @@ async def speech_to_text_websocket(websocket: WebSocket):
                         )
                     ]
                 await websocket.send_json(payload)
+            except SarvamQuotaError as exc:
+                logger.warning("stt_ws_quota_error", error=str(exc))
+                await websocket.send_json({"transcript": str(exc), "language_code": "unknown"})
             except Exception as exc:
                 duration_ms = (time.perf_counter() - start) * 1000
                 logger.error("stt_ws_transcription_failed", error=str(exc))

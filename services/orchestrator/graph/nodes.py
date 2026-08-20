@@ -297,24 +297,16 @@ PERSONA_PROMPTS: dict[str, str] = {
 }
 
 
-def create_respond_node(llm_provider: LLMProvider | None = None, memory_client: Any = None) -> Any:
+def create_respond_node(llm_provider: LLMProvider | None = None) -> Any:
     async def respond(state: AgentState) -> dict[str, Any]:
-        # Helper to store messages to memory service for next-turn context
-        async def _persist_turn(sid: str, uid: str, user_msg: str, assistant_msg: str):
-            if memory_client is None or not sid:
-                return
-            try:
-                await memory_client.add_message(sid, "user", user_msg, user_id=uid)
-                await memory_client.add_message(sid, "assistant", assistant_msg, user_id=uid)
-            except Exception:
-                pass
+        # NOTE: message persistence happens once in AgentService.run after the
+        # graph completes; do not store user/assistant turns here or they duplicate.
         if state.get("final_response") is not None:
             logger.info(
                 "respond_escalation_short_circuit",
                 request_id=state.get("request_id"),
                 response_length=len(state["final_response"]),
             )
-            await _persist_turn(state.get("session_id"), state.get("user_id"), state.get("user_input", ""), state["final_response"])
             return {
                 "execution_log": [
                     {
@@ -331,7 +323,6 @@ def create_respond_node(llm_provider: LLMProvider | None = None, memory_client: 
         if not tool_results and not plan:
             msg = "I received your request but I'm not sure how to help with that. Could you provide more details?"
             logger.info("respond_no_results", request_id=state.get("request_id"))
-            await _persist_turn(state.get("session_id"), state.get("user_id"), state.get("user_input", ""), msg)
             return {
                 "final_response": msg,
                 "execution_log": [
@@ -397,8 +388,6 @@ def create_respond_node(llm_provider: LLMProvider | None = None, memory_client: 
             logger.info("respond_no_llm_fallback", request_id=state.get("request_id"))
             final_response = _build_natural_summary(tool_results)
             response_log = {"node": "respond", "event": "no_llm_summary", "response_length": len(final_response)}
-
-        await _persist_turn(state.get("session_id"), state.get("user_id"), state.get("user_input", ""), final_response)
 
         return {
             "final_response": final_response,
@@ -558,6 +547,7 @@ def _build_natural_summary(tool_results: list[dict[str, Any]]) -> str:
             items = data.get("results", [])
             if items:
                 names = [r.get("title", r.get("tier", "")) for r in items[:3]]
+                names = list(dict.fromkeys(n for n in names if n))
                 parts.append(f"Found: {', '.join(names)}")
         elif tool_name == "lookup_order":
             order = data
