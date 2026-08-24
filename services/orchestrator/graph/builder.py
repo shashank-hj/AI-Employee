@@ -9,7 +9,6 @@ from orchestrator.graph.nodes import (
     create_context_node,
     create_plan_node,
     create_execute_node,
-    create_tool_invoke_node,
     create_respond_node,
 )
 from orchestrator.graph.edges import should_continue, after_plan_route
@@ -32,7 +31,6 @@ def build_orchestrator_graph(
     builder.add_node("build_context", create_context_node(context_builder))
     builder.add_node("plan", create_plan_node(planner))
     builder.add_node("execute", create_execute_node(tool_registry, approval_service))
-    builder.add_node("tool_invoke", create_tool_invoke_node(tool_registry))
     builder.add_node("respond", create_respond_node(llm_provider))
 
     builder.add_edge(START, "receive")
@@ -52,11 +50,10 @@ def build_orchestrator_graph(
         "execute",
         should_continue,
         {
-            "tool_invoke": "tool_invoke",
+            "execute": "execute",
             "respond": "respond",
         },
     )
-    builder.add_edge("tool_invoke", "execute")
     builder.add_edge("respond", END)
 
     kwargs: dict = {}

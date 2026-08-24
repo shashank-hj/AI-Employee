@@ -28,11 +28,14 @@ async def proxy_request(service: str, path: str, request: Request):
     else:
         target_url = f"{base}/{path}"
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=settings.PROXY_TIMEOUT_SECONDS) as client:
         resp = await client.request(
             method=request.method, url=target_url,
-            headers={k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")},
-            content=await request.body(), timeout=30.0,
+            headers={
+                k: v for k, v in request.headers.items()
+                if k.lower() not in ("host", "content-length")
+            },
+            content=await request.body(), timeout=settings.PROXY_TIMEOUT_SECONDS,
         )
     from fastapi.responses import Response
     return Response(content=resp.content, status_code=resp.status_code, headers=dict(resp.headers))

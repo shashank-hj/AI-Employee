@@ -63,6 +63,21 @@ class Citation(BaseModel):
     score: float
 
 
+class Source(BaseModel):
+    document_id: str
+    document_title: str
+    snippet: str = Field(default="", description="Short snippet from the cited chunk")
+    score: float = 0.0
+
+
+class AnswerResult(BaseModel):
+    answer: str = Field(description="Natural-language answer generated from retrieved chunks")
+    sources: list[Source] = Field(
+        default_factory=list,
+        description="Documents the answer drew from",
+    )
+
+
 class QueryResponse(BaseModel):
     query: str
     results: list[SearchResult]
@@ -70,6 +85,14 @@ class QueryResponse(BaseModel):
     citations: list[Citation] = Field(
         default_factory=list,
         description="Attributable sources for the answer",
+    )
+    answer: str | None = Field(
+        default=None,
+        description="Natural-language answer synthesized from retrieved chunks",
+    )
+    sources: list[Source] = Field(
+        default_factory=list,
+        description="Documents the answer drew from",
     )
     refined_query: str | None = Field(
         default=None,

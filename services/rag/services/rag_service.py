@@ -14,6 +14,7 @@ from rag.schemas.documents import (
     QueryResponse,
     SearchResult,
 )
+from rag.services.answer_generator import AnswerGenerator
 from rag.services.pipeline import BaseEmbeddingProvider, DocumentIngester
 from rag.services.query_refiner import QueryRefiner
 from rag.services.translator import QueryTranslator
@@ -153,6 +154,8 @@ class RAGService:
         usage_recorder: UsageRecorder | None = None,
         query_refiner: QueryRefiner | None = None,
         query_translator: QueryTranslator | None = None,
+        answer_generator: AnswerGenerator | None = None,
+        answer_top_k: int = 5,
     ) -> None:
         self._doc_repo = doc_repo
         self._store = vector_store
@@ -163,6 +166,8 @@ class RAGService:
         self._usage = usage_recorder
         self._refiner = query_refiner
         self._translator = query_translator
+        self._answer_gen = answer_generator
+        self._answer_top_k = answer_top_k
 
     @property
     def _embed_model(self) -> str:
@@ -178,16 +183,19 @@ class RAGService:
     ) -> None:
         if self._usage is None:
             return
-        await self._usage.record(UsageRecord(
-            service="rag",
-            category="embedding",
-            operation=operation,
-            model=self._embed_model,
-            unit="tokens",
-            input_units=estimate_tokens(text),
-            status=status,
-            error=error,
-        ))
+        try:
+            await self._usage.record(UsageRecord(
+                service="rag",
+                category="embedding",
+                operation=operation,
+                model=self._embed_model,
+                unit="tokens",
+                input_units=estimate_tokens(text),
+                status=status,
+                error=error,
+            ))
+        except Exception as exc:  # pragma: no cover - usage must never break the caller
+            logger.warning("embed_usage_record_failed", operation=operation, error=str(exc))
 
     async def ingest_document(self, data: DocumentUpload) -> DocumentResponse:
         doc = DocumentModel(
@@ -203,15 +211,30 @@ class RAGService:
 
         try:
             chunks_text = self._ingester.ingest(data.content)
+            if not chunks_text:
+                raise ValueError("No text was extracted from the document")
+
             embeddings = await self._embedder.embed(chunks_text)
             await self._record_embed(
                 operation="embed_docs",
                 text=data.content,
             )
 
+            if len(embeddings) != len(chunks_text):
+                raise ValueError(
+                    f"Embedding provider returned {len(embeddings)} vectors "
+                    f"for {len(chunks_text)} chunks; document ingestion aborted"
+                )
+
+            if all(not any(vec) for vec in embeddings):
+                raise ValueError(
+                    "All embeddings are zero vectors (embedding provider failed); "
+                    "document ingestion aborted instead of storing garbage"
+                )
+
             chunk_models: list[DocumentChunkModel] = []
             for i, (chunk_text, embedding) in enumerate(
-                zip(chunks_text, embeddings, strict=False)
+                zip(chunks_text, embeddings, strict=True)
             ):
                 chunk_models.append(DocumentChunkModel(
                     document_id=doc.id,
@@ -225,7 +248,14 @@ class RAGService:
             logger.info("document_ingested", doc_id=str(doc.id), chunks_count=len(chunk_models))
         except Exception as exc:
             logger.error("document_ingestion_failed", doc_id=str(doc.id), error=str(exc))
-            await self._doc_repo.update_status(doc, DocumentStatus.FAILED, 0)
+            try:
+                await self._doc_repo.update_status(doc, DocumentStatus.FAILED, 0)
+            except Exception as status_exc:  # pragma: no cover
+                logger.error(
+                    "document_status_update_failed",
+                    doc_id=str(doc.id),
+                    error=str(status_exc),
+                )
 
         return self._doc_to_response(doc)
 
@@ -282,6 +312,21 @@ class RAGService:
             raise
         await self._record_embed(operation="embed_query", text=request.query)
         ranked = self._ranker.rank(results, request.query)
+
+        # ── Answer generation (opencode synthesizes a sourced answer) ──
+        answer: str | None = None
+        sources: list = []
+        if self._answer_gen is not None and ranked:
+            try:
+                answer_result = await self._answer_gen.generate(
+                    request.query,
+                    ranked[: self._answer_top_k],
+                )
+                answer = answer_result.answer
+                sources = answer_result.sources
+            except Exception as exc:
+                logger.error("answer_generation_failed", query=request.query[:50], error=str(exc))
+
         logger.info(
             "query_executed",
             query=request.query[:50],
@@ -289,12 +334,15 @@ class RAGService:
             refined=bool(refined_query),
             translated=bool(translated_query),
             results_count=len(ranked),
+            answer=bool(answer),
         )
         return QueryResponse(
             query=request.query,
             results=ranked,
             total_found=len(ranked),
             citations=self._build_citations(ranked, limit=3),
+            answer=answer,
+            sources=sources,
             refined_query=refined_query,
             translated_query=translated_query,
             language=request.language,

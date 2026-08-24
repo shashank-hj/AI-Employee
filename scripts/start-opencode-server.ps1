@@ -13,19 +13,35 @@ and restarts it if it exits.
 
 Notes:
   - opencode is launched via its npm shim (opencode.ps1) on Windows.
-  - The server is bound to 127.0.0.1 by default; Docker reaches it through
-    host.docker.internal. Do NOT bind to 0.0.0.0 unless you have firewalled it.
-#>
+  - The server is bound to 0.0.0.0 by default so Docker containers reach it
+    through host.docker.internal:4096. Security is provided by the basic-auth
+    password (OPENCODE_SERVER_PASSWORD) that this script sets before launch,
+    so exposing on all interfaces is acceptable on a trusted machine.
+ #>
 
 [CmdletBinding()]
 param(
     [int]$Port = 4096,
-    [string]$Hostname = "127.0.0.1",
-    [string]$EnvFile = ".env-opencode",
+    [string]$Hostname = "0.0.0.0",
+    [string]$EnvFile = "",
     [switch]$Once
 )
 
 $ErrorActionPreference = "Stop"
+
+# Resolve the env file relative to this script's directory (not the caller's CWD),
+# so it works whether launched manually, from a Scheduled Task, or at startup.
+if (-not $EnvFile) {
+    $EnvFile = Join-Path $PSScriptRoot ".env-opencode"
+    if (-not (Test-Path $EnvFile)) {
+        # Script lives in <root>/scripts; the env files live in <root>.
+        $EnvFile = Join-Path (Split-Path $PSScriptRoot) ".env-opencode"
+    }
+    if (-not (Test-Path $EnvFile)) {
+        $EnvFile = Join-Path (Split-Path $PSScriptRoot) ".env"
+    }
+}
+Write-Host "using env file: $EnvFile" -ForegroundColor Cyan
 
 function Get-EnvValue {
     param([string]$Name, [string]$Default = "")
@@ -44,6 +60,17 @@ function Get-EnvValue {
 $password = Get-EnvValue "OPENCODE_PASSWORD" ""
 $username = Get-EnvValue "OPENCODE_USERNAME" "opencode"
 
+# Resolve the real opencode executable. On Windows `opencode` is an npm .ps1
+# shim, which Start-Process cannot launch directly, so point at the wrapped
+# opencode.exe instead.
+$ExePath = "opencode"
+$opencodeCmd = Get-Command opencode -ErrorAction SilentlyContinue
+if ($opencodeCmd -and $opencodeCmd.Source -match '\.ps1$') {
+    $shimDir = Split-Path $opencodeCmd.Source
+    $candidate = Join-Path $shimDir "node_modules/opencode-ai/bin/opencode.exe"
+    if (Test-Path $candidate) { $ExePath = $candidate }
+}
+
 $logDir = Join-Path $env:TEMP "opencode-engine"
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
 $logFile = Join-Path $logDir "serve.log"
@@ -60,9 +87,30 @@ if ($password) {
     Write-Host "WARNING: OPENCODE_PASSWORD is empty; server will be UNSECURED." -ForegroundColor Yellow
 }
 
+# Probe headers: once the server is secured it returns 401 without basic auth,
+# so the health checks below must send the same credentials the platform uses.
+$probeHeaders = @{}
+if ($password) {
+    $probeAuth = "Basic $([Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$username`:$password")))"
+    $probeHeaders["Authorization"] = $probeAuth
+}
+
 while ($true) {
+    # If a server is already healthy on this port (started manually or by a
+    # previous keeper instance), don't spawn a second one — just monitor it.
+    try {
+$probe = Invoke-WebRequest -Uri "http://127.0.0.1:${Port}/global/health" -Headers $probeHeaders -UseBasicParsing -TimeoutSec 2
+        if ($probe.StatusCode -eq 200) {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] opencode serve already UP on ${Hostname}:${Port}; monitoring..." -ForegroundColor Green
+            Start-Sleep -Seconds 30
+            continue
+        }
+    } catch {
+        # Not up yet — fall through and start one.
+    }
+
     Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] starting opencode serve..." -ForegroundColor Cyan
-    $p = Start-Process -FilePath "opencode" `
+    $p = Start-Process -FilePath $ExePath `
         -ArgumentList "serve", "--port", "$Port", "--hostname", "$Hostname" `
         -NoNewWindow -PassThru `
         -RedirectStandardOutput $logFile -RedirectStandardError $errFile
@@ -72,7 +120,7 @@ while ($true) {
     for ($i = 0; $i -lt 60; $i++) {
         if ($p.HasExited) { break }
         try {
-            $r = Invoke-WebRequest -Uri "http://${Hostname}:${Port}/global/health" -UseBasicParsing -TimeoutSec 2
+$r = Invoke-WebRequest -Uri "http://127.0.0.1:${Port}/global/health" -Headers $probeHeaders -UseBasicParsing -TimeoutSec 2
             if ($r.StatusCode -eq 200) { $ready = $true; break }
         } catch { Start-Sleep -Seconds 1 }
     }
@@ -93,3 +141,4 @@ while ($true) {
     if ($Once) { break }
     Start-Sleep -Seconds 5
 }
+

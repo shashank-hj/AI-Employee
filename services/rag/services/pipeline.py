@@ -21,6 +21,16 @@ class TextChunker:
 
         for para in paragraphs:
             para_len = len(para)
+            if para_len > self._chunk_size:
+                # A single paragraph larger than the chunk size must be split
+                # (e.g. long PDF paragraphs / tables). Flush anything pending
+                # first, then split this paragraph on its own.
+                if current:
+                    chunks.append("\n\n".join(current))
+                    current = []
+                    current_len = 0
+                chunks.extend(self._split_long_paragraph(para))
+                continue
             if current_len + para_len > self._chunk_size and current:
                 chunks.append("\n\n".join(current))
                 overlap_text = self._get_overlap(current)
@@ -36,6 +46,25 @@ class TextChunker:
             chunks.append(text[: self._chunk_size])
 
         return chunks
+
+    def _split_long_paragraph(self, para: str) -> list[str]:
+        """Split an oversized paragraph into ``chunk_size``-bounded pieces with
+        ``chunk_overlap`` between consecutive pieces."""
+        pieces: list[str] = []
+        start = 0
+        n = len(para)
+        while start < n:
+            end = min(start + self._chunk_size, n)
+            piece = para[start:end].strip()
+            if piece:
+                pieces.append(piece)
+            if end >= n:
+                break
+            next_start = end - self._chunk_overlap
+            if next_start <= start:
+                next_start = end  # guarantee forward progress
+            start = next_start
+        return pieces
 
     def _split_paragraphs(self, text: str) -> list[str]:
         raw = re.split(r"\n\s*\n", text)

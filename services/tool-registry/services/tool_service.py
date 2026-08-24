@@ -11,9 +11,10 @@ from tool_registry.schemas.tools import (
     ToolResponse,
     ToolUpdate,
 )
+from tool_registry.services.ssrf_guard import SSRFError, validate_http_url
 from tool_registry.services.tool_executor import ToolExecutor
 
-from shared.utils.exceptions import ConflictException, NotFoundException
+from shared.utils.exceptions import ConflictException, NotFoundException, ValidationException
 
 
 class ToolService:
@@ -25,6 +26,11 @@ class ToolService:
         existing = await self._repo.get_by_name(data.name)
         if existing:
             raise ConflictException(f"Tool with name '{data.name}' already exists")
+
+        self._validate_execution_config(
+            data.execution_type.value,
+            data.execution_config.model_dump(exclude_none=True),
+        )
 
         tool = ToolModel(
             name=data.name,
@@ -86,6 +92,10 @@ class ToolService:
         if "execution_type" in update_dict and update_dict["execution_type"] is not None:
             update_dict["execution_type"] = update_dict["execution_type"].value
 
+        exec_type = update_dict.get("execution_type", tool.execution_type)
+        exec_config = update_dict.get("execution_config", tool.execution_config or {})
+        self._validate_execution_config(exec_type, exec_config)
+
         updated = await self._repo.update(tool, update_dict)
         return self._model_to_response(updated)
 
@@ -125,6 +135,20 @@ class ToolService:
         if tool is None:
             raise NotFoundException(f"Tool with id '{tool_id}' not found")
         return tool
+
+    @staticmethod
+    def _validate_execution_config(execution_type: str, config: dict) -> None:
+        """Reject http/mcp execution targets that would enable SSRF."""
+        if execution_type == "http" and config.get("url"):
+            try:
+                validate_http_url(config["url"])
+            except SSRFError as exc:
+                raise ValidationException(f"Invalid execution url: {exc}") from None
+        if execution_type == "mcp" and config.get("mcp_server_url"):
+            try:
+                validate_http_url(config["mcp_server_url"])
+            except SSRFError as exc:
+                raise ValidationException(f"Invalid MCP server url: {exc}") from None
 
     @staticmethod
     def _model_to_response(tool: ToolModel) -> ToolResponse:

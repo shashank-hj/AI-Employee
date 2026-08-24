@@ -1839,19 +1839,31 @@ async function askRagQuestion(){
   var query=$('ragQuery').value.trim();if(!query)return;
   $('ragAnswer').innerHTML='<span class="text-muted">Searching documents...</span>';
   try{
-    var rr=await fetch(RAG_URL+'/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,top_k:3})});
+    var rr=await fetch(RAG_URL+'/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,top_k:8})});
     if(!rr.ok)throw new Error('Query failed: '+rr.status);
     var rd=await rr.json();
     if(!rd.results||!rd.results.length){$('ragAnswer').innerHTML='<span class="text-orange">No relevant documents found.</span>';return}
-    var ctx=rd.results.map(function(r,i){return'[Doc '+(i+1)+': '+r.document_title+']\n'+r.content}).join('\n\n');
-    $('ragAnswer').innerHTML='<span class="text-muted">Asking AI...</span>';
-    var ar=await fetch(ORCH_URL+'/api/agent/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_input:'Based on documents, answer: "'+query+'"\n\nDocuments:\n'+ctx})});
-    if(!ar.ok)throw new Error('Agent failed: '+ar.status);
-    var ad=await ar.json();
     var html='<div style="color:var(--accent-light);margin-bottom:6px"><strong>Q:</strong> '+esc(query)+'</div>';
-    html+='<div style="color:var(--green);margin-bottom:10px"><strong>A:</strong> '+esc(ad.final_response)+'</div>';
+    if(rd.answer&&rd.answer.trim()){
+      // Use the RAG service's LLM-generated answer (opencode), which already
+      // synthesizes the response and names the source documents.
+      html+='<div style="color:var(--green);margin-bottom:10px"><strong>A:</strong> '+esc(rd.answer)+'</div>';
+    }else{
+      // Fallback: route through the orchestrator agent for a natural summary.
+      $('ragAnswer').innerHTML='<span class="text-muted">Asking AI...</span>';
+      var ctx=rd.results.map(function(r,i){return'[Doc '+(i+1)+': '+r.document_title+']\n'+r.content}).join('\n\n');
+      var ar=await fetch(ORCH_URL+'/api/agent/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_input:'Based on documents, answer: "'+query+'"\n\nDocuments:\n'+ctx})});
+      if(!ar.ok)throw new Error('Agent failed: '+ar.status);
+      var ad=await ar.json();
+      html+='<div style="color:var(--green);margin-bottom:10px"><strong>A:</strong> '+esc(ad.final_response)+'</div>';
+    }
+    // Source attribution: prefer rd.sources (deduplicated), else rd.results.
+    var srcs=(rd.sources&&rd.sources.length)?rd.sources:rd.results;
     html+='<div class="text-xs text-muted"><strong>Sources:</strong><br>';
-    rd.results.forEach(function(r,i){html+='  '+(i+1)+'. <strong>'+esc(r.document_title)+'</strong> — "'+esc(r.content.substring(0,80))+'..."<br>'});
+    srcs.forEach(function(r,i){
+      var snippet=(r.snippet!==undefined?r.snippet:(r.content||''));
+      html+='  '+(i+1)+'. <strong>'+esc(r.document_title)+'</strong> — "'+esc(snippet.substring(0,80))+'..."<br>'
+    });
     html+='</div>';$('ragAnswer').innerHTML=html;
   }catch(e){$('ragAnswer').innerHTML='<span class="text-red">Error: '+esc(e.message)+'</span>'}
 }

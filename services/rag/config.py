@@ -22,7 +22,12 @@ class Settings(BaseSettings):
     EMBEDDING_PROVIDER: str = "mock"
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
-    EMBEDDING_TIMEOUT: float = 30.0
+    # Batch embedding: many chunks are sent to Ollama per HTTP call. The timeout
+    # must comfortably exceed the time Ollama needs to embed one batch (embedding
+    # 64 large chunks can take 30s+ on CPU), otherwise the call falls back to slow
+    # per-text requests and large uploads (e.g. 250+ page PDFs) become too slow.
+    EMBEDDING_TIMEOUT: float = 180.0
+    EMBEDDING_BATCH_SIZE: int = 64
 
     # ── Agentic query refinement ──
     RAG_REFINE_ENABLED: bool = False
@@ -34,6 +39,18 @@ class Settings(BaseSettings):
     RAG_TRANSLATE_URL: str = ""
     RAG_TRANSLATE_API_KEY: str = ""
     RAG_TRANSLATE_TIMEOUT: float = 10.0
+
+    # ── Answer generation (LLM synthesizes a natural-language answer) ──
+    RAG_ANSWER_ENABLED: bool = False
+    RAG_ANSWER_LLM: str = "opencode"
+    RAG_ANSWER_TOP_K: int = 8
+    RAG_ANSWER_MAX_TOKENS: int = 1024
+    RAG_ANSWER_TIMEOUT: float = 120.0
+    OPENCODE_BASE_URL: str = "http://localhost:4096"
+    OPENCODE_MODEL: str = "opencode-go/deepseek-v4-flash"
+    OPENCODE_AGENT: str = "general"
+    OPENCODE_PASSWORD: str = ""
+    OPENCODE_USERNAME: str = "opencode"
 
     # ── Usage / Cost tracking ──
     USAGE_ENABLED: bool = True

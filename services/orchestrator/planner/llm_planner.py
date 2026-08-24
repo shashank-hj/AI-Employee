@@ -144,10 +144,10 @@ def _extract_email_params(text: str) -> dict[str, str]:
     request = text
     if match:
         request = request.replace(match.group(0), " ")
+    # The gateway redacts real addresses to the literal "[EMAIL]" placeholder;
+    # drop it so it never leaks into the subject/body.
+    request = request.replace("[EMAIL]", " ")
     request = " ".join(re.sub(r"\s+", " ", request).split())
-
-    if not to:
-        return {"to": to, "subject": request or "(no subject)", "body": request}
 
     subject = _build_email_subject(request)
     body = _build_email_body(request, subject)

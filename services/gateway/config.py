@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # ── Channel forwarding ──
     CHANNEL_TIMEOUT_SECONDS: float = 300.0
 
+    # ── Service proxy timeout (seconds) ──
+    # Large file uploads (e.g. big PDFs) can take a while to ingest, so this
+    # must be generous to avoid the gateway cutting off in-flight requests.
+    PROXY_TIMEOUT_SECONDS: float = 300.0
+
     # ── Integrated dashboard (chat lives inside the dashboard now) ──
     # Browser-reachable URL for the dashboard; defaults to the localhost
     # orchestrator port (which is also what dashboard.html hardcodes).

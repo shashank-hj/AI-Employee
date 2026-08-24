@@ -119,7 +119,7 @@ class TestHTTPExecution:
         tool = _make_tool(
             name="remote-calc",
             execution_type="http",
-            execution_config={"url": "https://mock.local/calc", "method": "POST"},
+            execution_config={"url": "https://example.com/calc", "method": "POST"},
         )
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -150,7 +150,7 @@ class TestHTTPExecution:
         tool = _make_tool(
             name="remote",
             execution_type="http",
-            execution_config={"url": "https://mock.local/x"},
+            execution_config={"url": "https://example.com/x"},
             retry_policy={"max_retries": 1, "delay_seconds": 0},
         )
         mock_client = AsyncMock()

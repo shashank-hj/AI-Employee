@@ -13,6 +13,8 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from shared.utils.safe_eval import ExpressionError, evaluate_expression
+
 Handler = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
 
@@ -24,16 +26,22 @@ async def echo(params: dict[str, Any]) -> dict[str, Any]:
     return {"echo": params}
 
 
+_CALC_FUNCS: dict[str, Callable[..., Any]] = {
+    "abs": abs, "round": round, "min": min, "max": max, "sum": sum, "pow": pow,
+    "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
+}
+
+_CALC_CONSTS: dict[str, Any] = {"pi": math.pi, "e": math.e}
+
+
 async def calculator(params: dict[str, Any]) -> dict[str, Any]:
-    expression = params.get("expression", "")
-    safe = {
-        "abs": abs, "round": round, "min": min, "max": max, "sum": sum, "pow": pow,
-        "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos, "pi": math.pi, "e": math.e,
-    }
+    expression = str(params.get("expression", ""))
     try:
-        result = eval(expression, {"__builtins__": {}}, {**safe, **math.__dict__})  # noqa: S307
+        result = evaluate_expression(expression, functions=_CALC_FUNCS, constants=_CALC_CONSTS)
         return {"expression": expression, "result": result}
-    except Exception as exc:  # noqa: BLE001
+    except ExpressionError as exc:
+        return {"expression": expression, "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 - e.g. ZeroDivisionError, OverflowError
         return {"expression": expression, "error": str(exc)}
 
 

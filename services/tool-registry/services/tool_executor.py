@@ -18,6 +18,7 @@ from tool_registry.models.tool import ToolModel
 from tool_registry.services.mcp_client import MCPClient
 from tool_registry.services.native_handlers import resolve_native_handler
 from tool_registry.services.schema_validator import validate_parameters
+from tool_registry.services.ssrf_guard import SSRFError, validate_http_url
 
 logger = structlog.get_logger(__name__)
 
@@ -92,6 +93,12 @@ class ToolExecutor:
         url = config.get("url")
         if not url:
             raise ToolExecutionError(f"Tool '{tool.name}' has no execution url")
+
+        # SSRF guard: only public http/https targets are permitted.
+        try:
+            validate_http_url(url)
+        except SSRFError as exc:
+            raise ToolExecutionError(f"Tool '{tool.name}': {exc}", status_code=400) from None
 
         method = (config.get("method") or "POST").upper()
         headers = dict(config.get("headers") or {})

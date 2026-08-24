@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 
+import structlog
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +9,7 @@ from rag.config import settings
 from rag.database.session import get_db
 from rag.repositories.document_repo import DocumentRepository
 from rag.repositories.vector_store import VectorStore
+from rag.services.answer_generator import AnswerGenerator
 from rag.services.pipeline import (
     BaseEmbeddingProvider,
     DocumentIngester,
@@ -20,8 +22,11 @@ from rag.services.translator import NoopQueryTranslator, SpeechQueryTranslator
 from shared.llm.base import LLMProvider
 from shared.llm.embedding_provider import OllamaEmbeddingProvider
 from shared.llm.ollama_provider import OllamaProvider
+from shared.llm.opencode_provider import OpencodeProvider
 from shared.llm.sarvam_provider import SarvamProvider
 from shared.usage import UsageRecorder
+
+logger = structlog.get_logger(__name__)
 
 
 @lru_cache
@@ -31,6 +36,7 @@ def get_embedding_provider() -> BaseEmbeddingProvider:
             base_url=settings.OLLAMA_BASE_URL,
             model=settings.OLLAMA_EMBED_MODEL,
             timeout=settings.EMBEDDING_TIMEOUT,
+            batch_size=settings.EMBEDDING_BATCH_SIZE,
         )
     return MockEmbeddingProvider()
 
@@ -96,6 +102,34 @@ def get_query_translator():
     )
 
 
+@lru_cache
+def get_answer_generator() -> AnswerGenerator | None:
+    """Build the LLM-backed answer generator, or ``None`` when disabled."""
+    if not settings.RAG_ANSWER_ENABLED:
+        return None
+
+    provider_name = settings.RAG_ANSWER_LLM.lower().strip()
+    if provider_name != "opencode":
+        logger.warning(
+            "answer_llm_unsupported",
+            provider=provider_name,
+            message="Only 'opencode' is supported for answer generation; disabled",
+        )
+        return None
+
+    llm = OpencodeProvider(
+        base_url=settings.OPENCODE_BASE_URL,
+        model=settings.OPENCODE_MODEL,
+        agent=settings.OPENCODE_AGENT,
+        password=settings.OPENCODE_PASSWORD or None,
+        username=settings.OPENCODE_USERNAME or "opencode",
+        timeout=settings.RAG_ANSWER_TIMEOUT,
+        max_tokens=settings.RAG_ANSWER_MAX_TOKENS,
+        temperature=0.1,
+    )
+    return AnswerGenerator(llm=llm, usage_recorder=get_usage_recorder())
+
+
 async def get_rag_service(db: AsyncSession = Depends(get_db)) -> RAGService:
     embedder = get_embedding_provider()
     doc_repo = DocumentRepository(db)
@@ -117,4 +151,6 @@ async def get_rag_service(db: AsyncSession = Depends(get_db)) -> RAGService:
         usage_recorder=get_usage_recorder(),
         query_refiner=get_query_refiner(),
         query_translator=get_query_translator(),
+        answer_generator=get_answer_generator(),
+        answer_top_k=settings.RAG_ANSWER_TOP_K,
     )

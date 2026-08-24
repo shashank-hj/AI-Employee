@@ -22,4 +22,7 @@ def should_continue(state: AgentState) -> str:
     if index >= len(plan):
         return "respond"
 
-    return "tool_invoke"
+    # Loop back to the single execution node (which invokes the tool AND
+    # advances the index). Keeping a second "tool_invoke" node here caused
+    # every plan step except the first to run its tool twice.
+    return "execute"

@@ -1,11 +1,11 @@
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
 from rag.container import get_rag_service
 from rag.schemas.documents import (
-    DocumentUpload,
     DocumentResponse,
+    DocumentUpload,
     QueryRequest,
     QueryResponse,
 )
@@ -26,9 +26,21 @@ def _extract_text(file_bytes: bytes, filename: str = "", content_type: str = "")
             from pypdf import PdfReader
             reader = PdfReader(BytesIO(file_bytes))
             pages = [page.extract_text() or "" for page in reader.pages]
-            return "\n\n".join(pages)
+            extracted = "\n\n".join(pages).strip()
+            if extracted:
+                return extracted
         except Exception:
             pass
+        # The file is a PDF but no text could be extracted (encrypted,
+        # malformed, or a scanned/image-only PDF). Surface this instead of
+        # silently ingesting binary garbage decoded as UTF-8.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Could not extract text from the PDF. It may be encrypted, "
+                "corrupted, or a scanned/image-only document."
+            ),
+        )
     try:
         return file_bytes.decode("utf-8")
     except UnicodeDecodeError:
@@ -72,8 +84,8 @@ async def get_document(
 
 @router.get("/documents")
 async def list_documents(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     service: RAGService = Depends(get_rag_service),
 ):
     docs, total = await service.list_documents(page, page_size)

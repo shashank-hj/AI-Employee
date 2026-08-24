@@ -206,6 +206,22 @@ class TestTextChunker:
         chunks = chunker.chunk(text)
         assert len(chunks) >= 3
 
+    def test_chunk_splits_oversized_single_paragraph(self):
+        from rag.services.pipeline import TextChunker
+        chunker = TextChunker(chunk_size=100, chunk_overlap=20)
+        text = "Y" * 250  # single paragraph far larger than chunk_size
+        chunks = chunker.chunk(text)
+        assert len(chunks) >= 3
+        assert all(len(c) <= 100 for c in chunks)
+
+    def test_chunk_mixed_oversized_and_normal_paragraphs(self):
+        from rag.services.pipeline import TextChunker
+        chunker = TextChunker(chunk_size=50, chunk_overlap=10)
+        text = "Z" * 200 + "\n\n" + "A" * 30 + "\n\n" + "B" * 30
+        chunks = chunker.chunk(text)
+        assert len(chunks) >= 5
+        assert all(len(c) <= 50 for c in chunks)
+
 
 class TestEmbeddingProvider:
     def test_dimension(self):
@@ -214,8 +230,9 @@ class TestEmbeddingProvider:
         assert provider.dimension == 768
 
     def test_embed_single(self):
-        from rag.services.pipeline import MockEmbeddingProvider
         import asyncio
+
+        from rag.services.pipeline import MockEmbeddingProvider
         provider = MockEmbeddingProvider()
         async def run():
             vectors = await provider.embed(["hello world"])
@@ -225,8 +242,9 @@ class TestEmbeddingProvider:
         assert len(vectors[0]) == 768
 
     def test_embed_deterministic(self):
-        from rag.services.pipeline import MockEmbeddingProvider
         import asyncio
+
+        from rag.services.pipeline import MockEmbeddingProvider
         provider = MockEmbeddingProvider()
         async def run():
             v1 = await provider.embed(["test"])
@@ -238,8 +256,9 @@ class TestEmbeddingProvider:
         assert v1 != v3
 
     def test_embed_batch(self):
-        from rag.services.pipeline import MockEmbeddingProvider
         import asyncio
+
+        from rag.services.pipeline import MockEmbeddingProvider
         provider = MockEmbeddingProvider()
         async def run():
             vectors = await provider.embed(["a", "b", "c"])
@@ -251,7 +270,7 @@ class TestEmbeddingProvider:
 
 class TestDocumentIngester:
     def test_ingester_delegates_to_chunker(self):
-        from rag.services.pipeline import TextChunker, DocumentIngester
+        from rag.services.pipeline import DocumentIngester, TextChunker
         chunker = TextChunker(chunk_size=500, chunk_overlap=50)
         ingester = DocumentIngester(chunker)
         text = "A" * 600 + "\n\n" + "B" * 600

@@ -118,7 +118,7 @@ def create_execute_node(
         if tool is None:
             return {
                 "execution_log": [
-                    {**step_log, "event": "step_failed", "error": f"Tool '{{current_step['tool_name']}}' not found in registry"},
+                    {**step_log, "event": "step_failed", "error": f"Tool '{current_step['tool_name']}' not found in registry"},
                 ],
                 "current_step_index": index + 1,
                 "tool_results": [{"tool_name": current_step["tool_name"], "success": False, "error": "Tool not found"}],
