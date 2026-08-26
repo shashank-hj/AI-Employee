@@ -985,45 +985,66 @@ function pcm16ToWavBlob(base64,sampleRate){
 }
 var samvaadAudioQueue=[];
 var samvaadAutoReArm=false;
+var samvaadPumping=false;
+var samvaadDoneTimer=null;
 function samvaadPlayDone(){
   samvaadPlayer=null;
+  if(samvaadDoneTimer){clearTimeout(samvaadDoneTimer);samvaadDoneTimer=null}
   if(samvaadConvActive&&samvaadConvPendingReArm){samvaadConvPendingReArm=false;setTimeout(function(){samvaadConvListen()},500);return}
   if(samvaadAutoReArm){samvaadAutoReArm=false;setTimeout(function(){$('chat-mic').click()},400)}
 }
-function playSamvaadAudio(blob){
+function ensureSamvaadPlayCtx(){
   if(!samvaadPlayCtx||samvaadPlayCtx.state==='closed'){samvaadPlayCtx=new(window.AudioContext||window.webkitAudioContext)()}
-  var ctx=samvaadPlayCtx;
-  if(ctx.state==='suspended'){try{ctx.resume()}catch(e){}}
-  blob.arrayBuffer().then(function(buf){
-    return ctx.decodeAudioData(buf);
-  }).then(function(decoded){
-    samvaadAudioQueue.push(decoded);
-    if(!samvaadPlayer)samvaadPumpAudio();
-  }).catch(function(){});
+  if(samvaadPlayCtx.state==='suspended'){try{samvaadPlayCtx.resume()}catch(e){}}
+  return samvaadPlayCtx;
 }
-function samvaadPumpAudio(){
-  if(!samvaadPlayCtx||samvaadPlayCtx.state==='closed'){samvaadPlayCtx=new(window.AudioContext||window.webkitAudioContext)()}
-  var ctx=samvaadPlayCtx;
-  if(ctx.state==='suspended'){try{ctx.resume()}catch(e){}}
-  while(samvaadAudioQueue.length){
-    var buf=samvaadAudioQueue.shift();
-    var src=ctx.createBufferSource();
-    src.buffer=buf;
-    src.connect(ctx.destination);
-    var t=Math.max(ctx.currentTime,samvaadScheduledUntil);
-    src.start(t);
-    samvaadScheduledUntil=t+buf.duration;
-    src.onended=function(){
-      if(!samvaadAudioQueue.length&&ctx.currentTime>=samvaadScheduledUntil-0.02)samvaadPlayDone();
-    };
-    samvaadPlayer=ctx;
+function pcm16ToAudioBuffer(ctx,base64,sampleRate){
+  var chars=atob(base64),bytes=new Uint8Array(chars.length);
+  for(var i=0;i<chars.length;i++)bytes[i]=chars.charCodeAt(i);
+  var sr=sampleRate||16000;
+  var frameCount=Math.floor(bytes.length/2);
+  var buffer=ctx.createBuffer(1,frameCount,sr);
+  var data=buffer.getChannelData(0);
+  var off=0;
+  for(var i=0;i<frameCount;i++){
+    var s=bytes[off]|(bytes[off+1]<<8);off+=2;
+    if(s>=0x8000)s-=0x10000;
+    data[i]=s/32768;
   }
-  if(!samvaadAudioQueue.length){
-    setTimeout(function(){
-      if(!samvaadPlayer)return;
-      if(samvaadPlayCtx&&samvaadPlayCtx.currentTime>=samvaadScheduledUntil-0.02&&!samvaadAudioQueue.length)samvaadPlayDone();
-    },120);
+  return buffer;
+}
+function playSamvaadAudio(base64,sampleRate){
+  var ctx=ensureSamvaadPlayCtx();
+  var decoded;
+  try{decoded=pcm16ToAudioBuffer(ctx,base64,sampleRate)}catch(e){return}
+  samvaadAudioQueue.push(decoded);
+  samvaadPumpAudio();
+}function samvaadPumpAudio(){
+  if(samvaadPumping)return;
+  samvaadPumping=true;
+  var ctx=ensureSamvaadPlayCtx();
+  try{
+    while(samvaadAudioQueue.length){
+      var buf=samvaadAudioQueue.shift();
+      var src=ctx.createBufferSource();
+      src.buffer=buf;
+      src.connect(ctx.destination);
+      var t=Math.max(ctx.currentTime,samvaadScheduledUntil);
+      src.start(t);
+      samvaadScheduledUntil=t+buf.duration;
+      samvaadPlayer=ctx;
+    }
+  }finally{
+    samvaadPumping=false;
   }
+  clearTimeout(samvaadDoneTimer);
+  samvaadDoneTimer=setTimeout(samvaadCheckPlaybackDone,120);
+}
+function samvaadCheckPlaybackDone(){
+  if(!samvaadPlayCtx||samvaadPlayCtx.state==='closed'||!samvaadPlayer)return;
+  if(samvaadAudioQueue.length){samvaadPumpAudio();return}
+  if(samvaadPlayCtx.currentTime>=samvaadScheduledUntil-0.02){samvaadPlayDone();return}
+  samvaadDoneTimer=setTimeout(samvaadCheckPlaybackDone,120);
 }
 function samvaadArmAutoMode(){samvaadAutoReArm=true}
 async function samvaadVoiceTurn(webmBlob,opts){
@@ -1054,7 +1075,7 @@ async function samvaadVoiceTurn(webmBlob,opts){
       if(t){finalText=t}
       if(status==='completed'&&t)finish();
     };
-    samvaadAudioHandler=function(audioB64,sr){if(opts.conversation&&samvaadConvActive){setChatMicState('speaking');setChatVoiceStatus('Agent speaking...')}playSamvaadAudio(pcm16ToWavBlob(audioB64,sr))};
+    samvaadAudioHandler=function(audioB64,sr){if(opts.conversation&&samvaadConvActive){setChatMicState('speaking');setChatVoiceStatus('Agent speaking...')}playSamvaadAudio(audioB64,sr)};
     samvaadTranscriptHandler=function(role,content){
       if(!content)return;
       if(role==='user'){
@@ -1386,6 +1407,7 @@ async function processChatMicAudio(){
 async function toggleSamvaadConversation(){
   if(samvaadConvActive){stopSamvaadConversation();return}
   try{
+    ensureSamvaadPlayCtx();
     samvaadConvStream=await navigator.mediaDevices.getUserMedia({audio:true});
     samvaadConvActive=true;
     samvaadConvPendingReArm=false;
@@ -1406,6 +1428,8 @@ async function toggleSamvaadConversation(){
 function stopSamvaadConversation(){
   samvaadConvActive=false;
   samvaadConvPendingReArm=false;
+  if(samvaadDoneTimer){clearTimeout(samvaadDoneTimer);samvaadDoneTimer=null}
+  samvaadPumping=false;
   if(samvaadPlayCtx){try{samvaadPlayCtx.close()}catch(e){}samvaadPlayCtx=null}
   samvaadAudioQueue.length=0;samvaadPlayer=null;samvaadScheduledUntil=0;
   if(samvaadConvVadTimer){clearInterval(samvaadConvVadTimer);samvaadConvVadTimer=null}

@@ -344,12 +344,20 @@ class SamvaadSessionManager:
             await session.close()
 
     async def _on_audio(self, session: SamvaadSession, msg: Any) -> None:
+        audio_b64 = getattr(msg, "audio_base64", "")
+        sample_rate = getattr(msg, "sample_rate", None)
+        logger.info(
+            "samvaad_audio_chunk",
+            session_id=session.session_id,
+            bytes=len(audio_b64),
+            sample_rate=sample_rate,
+        )
         session.outbox.put_nowait(
             {
                 "type": "audio",
-                "audio_base64": getattr(msg, "audio_base64", ""),
+                "audio_base64": audio_b64,
                 "format": getattr(getattr(msg, "format", None), "value", "audio/wav"),
-                "sample_rate": getattr(msg, "sample_rate", None),
+                "sample_rate": sample_rate,
             }
         )
 

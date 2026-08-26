@@ -24,6 +24,10 @@ if (-not $ngrok) {
     exit 1
 }
 
+# Keep the agent current: an outdated agent is rejected by the account
+# (ERR_NGROK_121). Update quietly; ignore failures so the tunnel can still start.
+& $ngrok update 2>&1 | Out-Null
+
 $logDir = Join-Path $env:TEMP "opencode\ngrok"
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 $logFile = Join-Path $logDir "ngrok_persistent.log"
@@ -37,7 +41,7 @@ while ($true) {
     $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Add-Content -Path $logFile -Value "$stamp starting ngrok ($Url -> $Domain)"
     try {
-        & $ngrok http $Url --domain=$Domain --log=$autoLog --log-format=logfmt 2>&1 | Out-Null
+        & $ngrok http $Url --url=$Domain --log=$autoLog --log-format=logfmt 2>&1 | Out-Null
     } catch {
         Add-Content -Path $logFile -Value "$stamp ngrok exited with error: $($_.Exception.Message)"
     }
